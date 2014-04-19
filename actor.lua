@@ -1,14 +1,16 @@
 util = require "util"
 require "queue"
+Reactor = require "reactor.luaevent"
 
 -- Scheduler -----------------------------------------------------------------
 Scheduler = util.class()
 
 Scheduler.__init__ = function (self)
     self.mqueue = Queue()
---    self.reactor = event.Reactor()
+    self.reactor = Reactor()
     self.actors = {}
     self.threads = {}
+    self.hub = nil -- the scheduler coroutine
 end
 
 Scheduler.register_actor = function (self, name, actor)
@@ -21,28 +23,82 @@ Scheduler.register_actor = function (self, name, actor)
     self.threads[name] = thread
 end
 
+Scheduler.start_actor = function (self, name)
+    status, what = coroutine.resume(self.threads[name], self.actors[name])
+    -- TODO: process status and what
+    return status, what
+end
+
 Scheduler.push_msg = function (self, msg)
     -- TODO: if session is nil, create a unique one
     self.mqueue:push(msg)
 end
 
+Scheduler.register_fd_event = function (self, from, to, name, fd, event)
+    self.reactor:register_fd_event(
+        name,
+        function (events)
+            -- push event message to mqueue
+            self.mqueue:push({
+                from = from,
+                to = to,
+                cmd = "fd_event",
+                event = event,
+                fd = fd,
+            })
+            coroutine.resume(self.hub)
+        end,
+        fd,
+        event
+    )
+end
+
+Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval)
+    self.reactor:register_timeout_cb(
+        name,
+        function (events)
+            -- push event message to mqueue
+            self.mqueue:push({
+                from = from,
+                to = to,
+                cmd = "timeout",
+                timeout_interval = timeout_interval,
+            })
+            coroutine.resume(self.hub)
+        end,
+        fdevent
+    )
+end
+
+Scheduler.unregister_event = function (self, name)
+    self.reactor:unregister_event(name)
+end
+
+Scheduler.process_mqueue = function (self)
+    while true do
+        while not self.mqueue:empty() do
+            -- TODO: check msg
+            local msg
+            msg = self.mqueue:pop()
+            status, what = coroutine.resume(self.threads[msg.to], msg)
+            if status == false then
+                table.remove(self.threads, name)
+                table.remove(self.actors, name)
+            end
+        end
+        coroutine.yield()
+    end
+end
+
 Scheduler.run = function (self)
     -- start threads
-    for name, thread in pairs(self.threads) do
-        status, what = coroutine.resume(self.threads[name], self.actors[name])
-        -- TODO: proc status
+    for name, _ in pairs(self.threads) do
+        self:start_actor(name)
     end
 
-    while not self.mqueue:empty() do
-        -- TODO: check msg
-        local msg
-        msg = self.mqueue:pop()
-        status, what = coroutine.resume(self.threads[msg.to], msg)
-        if status == false then
-            table.remove(self.threads, name)
-            table.remove(self.actors, name)
-        end
-    end
+    self.hub = coroutine.create(self.process_mqueue)
+    coroutine.resume(self.hub, self)
+    self.reactor:run()
 end
 
 -- Actor ---------------------------------------------------------------------
