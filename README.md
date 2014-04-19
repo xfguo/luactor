@@ -1,6 +1,8 @@
 LuActor - Actor Model for Lua
 =============================
 
+[![Build Status](https://travis-ci.org/xfguo/luactor.svg?branch=master)](https://travis-ci.org/xfguo/luactor)
+
 一个纯Lua（至少目前）实现的[Actor Model](http://en.wikipedia.org/wiki/Actor_model)的框架。
 
 这个项目的想法受到了以下项目和文章的启发，在此表示感谢
@@ -28,11 +30,12 @@ Dependencies
 
 ### Reactor/Dispatcher Driver
 
-LuActor use a [reactor](http://en.wikipedia.org/wiki/Reactor_pattern) to monitor all external events (Timeout/FD/...).
+**LuActor** use a [**reactor**](http://en.wikipedia.org/wiki/Reactor_pattern) to monitor all external events (Timeout/FD/...).
 
 For now, it (only) support:
 
 - [luaevent](https://github.com/harningt/luaevent)
+  - *NOTE: luaevent v0.4.3 has been tested, older verison may have some issuses (At least for v0.3.2 on Ubuntu 12.04). So please make sure you have the right version of luaevent.*
 
 *reactor.lua* is an abstract layer of the reactor library, so it is very easy to port to others. Like lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...
 

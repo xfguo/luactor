@@ -1,0 +1,19 @@
+language: c
+
+env:
+  matrix:
+    - "LUA=lua5.1"
+
+branches:
+  only:
+    - master
+
+install:
+  - "sudo apt-get install $LUA -y"
+  - "sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y"
+  - "git clone https://github.com/harningt/luaevent.git"
+  - "sudo make -C luaevent install"
+
+script:
+  - "$LUA -v example/pingpong.lua"
+
