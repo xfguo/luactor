@@ -24,8 +24,7 @@ LuaeventReactor.__register_event = function (self, name, fd_event_cb, fd, event,
 end
 
 LuaeventReactor.register_fd_event = function (self, name, fd_event_cb, fd, event)
-    local events
-    events = 0
+    local events = 0
     -- transform event type
     if event == self.FD_READ then
         events = events + core.EV_READ
@@ -45,9 +44,8 @@ LuaeventReactor.unregister_event = function (self, name)
         error("try to unregister unknown event")
     end
 
-    fd_ev = self.__events[name]
-    fd_ev:close()
-    self.fd_events[name] = nil
+    self.__events[name]:close()
+    self.__events[name] = nil
 end
 
 LuaeventReactor.register_timeout_cb = function (self, name, timeout_cb, timeout_interval)

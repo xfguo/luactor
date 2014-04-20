@@ -2,18 +2,24 @@ language: c
 
 env:
   matrix:
-    - "LUA=lua5.1"
-
-branches:
-  only:
-    - master
+    - "LUA=lua5.1 REACTOR=luaevent"
+    - "LUA=lua5.1 REACTOR=uloop"
 
 install:
   - "sudo apt-get install $LUA -y"
-  - "sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y"
-  - "git clone https://github.com/harningt/luaevent.git"
-  - "sudo make -C luaevent install"
+  - 'if [ $REACTOR = "luaevent" ]; then \
+        sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y ; \
+        git clone https://github.com/harningt/luaevent.git ; \
+        sudo make -C luaevent install ; \
+     fi'
+  - 'if [ $REACTOR = "uloop" ]; then \
+        git clone https://github.com/xfguo/libubox.git; \
+        cmake libubox; \
+        make -C libubox; \
+        ln -sf libubox/libubox.so . ; \
+        ln -sf libubox/lua/uloop.so . ; \
+     fi'
 
 script:
-  - "$LUA -v example/pingpong.lua"
+  - "$LUA -v example/pingpong.lua $REACTOR"
 

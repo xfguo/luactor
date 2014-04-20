@@ -1,11 +1,18 @@
 util = require "util"
 require "queue"
-Reactor = require "reactor.luaevent"
 
 -- Scheduler -----------------------------------------------------------------
 Scheduler = util.class()
 
-Scheduler.__init__ = function (self)
+Scheduler.__init__ = function (self, reactor)
+    local Reactor
+    if reactor == 'uloop' then
+        Reactor = require "reactor.uloop"
+    else
+        -- for now, default reactor driver is luaevent
+        Reactor = require "reactor.luaevent"
+    end
+        
     self.mqueue = Queue()
     self.reactor = Reactor()
     self.actors = {}
@@ -81,9 +88,12 @@ Scheduler.process_mqueue = function (self)
             local msg
             msg = self.mqueue:pop()
             status, what = coroutine.resume(self.threads[msg.to], msg)
-            if status == false then
-                table.remove(self.threads, name)
-                table.remove(self.actors, name)
+            if coroutine.status(self.threads[msg.to]) == 'dead'
+               or status == false
+            then
+                -- TODO: handle error when status == false
+                self.actors[msg.to] = nil
+                self.threads[msg.to] = nil
             end
         end
         coroutine.yield()

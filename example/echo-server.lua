@@ -54,9 +54,10 @@ EchoActor.callback = function(self)
     end
 
     -- unregister fd event, close and exit
-    print(string.format('EchoActor[%s] end...', self.my_name))
+    self.sch:unregister_event(self.my_name)
     self.conn:close()
-    self.sch:unregister_event(self.my_name) -- FIXME: why I can't print after this line?
+
+    print(string.format('EchoActor[%s] end...', self.my_name))
 end
 
 --
@@ -71,7 +72,7 @@ TcpManager.callback = function (self, msg)
 
     print('TcpManager start...')
     print("Use `telnet localhost 8080` to test it")
-    
+
     self.server = assert(socket.bind("*", 8080))
 
     -- register fd event for new connection
@@ -88,7 +89,7 @@ TcpManager.callback = function (self, msg)
         self:listen({
             fd_event = function (msg)
                 local conn = self.server:accept()
-                
+
                 -- generate a new name
                 local conn_name = 'tcp_conn_'..conn_no
                 conn_no = conn_no + 1
@@ -102,8 +103,20 @@ TcpManager.callback = function (self, msg)
     end
 end
 -- Main -----------------------------------------------------------------------
+local reactor = 'luaevent'
+if arg[1] ~= nil then
+    if arg[1] == 'uloop' then
+        reactor = arg[1]
+    elseif arg[1] ~= 'luaevent' then
+        error(string.format(
+            'unknown reactor: %s, usage:\n\n    %s %s [uloop|luaevent]\n',
+            arg[1], arg[-1], arg[0]
+        ))
+    end
+end
+print('The reactor you use is *'..reactor..'*.')
 
-sch = Scheduler()
+sch = Scheduler(reactor)
 tcp_manager = TcpManager(sch, "tcp_manager")
 sch:register_actor('tcp_manager', tcp_manager)
 sch:run()
