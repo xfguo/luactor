@@ -16,6 +16,7 @@ Scheduler.__init__ = function (self, reactor)
     self.mqueue = Queue()
     self.reactor = Reactor()
     self.actors = {}
+    self.actors_num = 0
     self.threads = {}
     self.hub = nil -- the scheduler coroutine
 end
@@ -25,6 +26,7 @@ Scheduler.register_actor = function (self, name, actor)
         error("the actor name has been registered")
     end
     self.actors[name] = actor
+    self.actors_num = self.actors_num + 1
 
     thread = coroutine.create(actor.callback)
     self.threads[name] = thread
@@ -84,6 +86,10 @@ end
 Scheduler.process_mqueue = function (self)
     while true do
         while not self.mqueue:empty() do
+            if self.actors_num < 0 then
+                self.reactor:cancel()
+                break
+            end
             -- TODO: check msg
             local msg
             msg = self.mqueue:pop()
@@ -93,6 +99,7 @@ Scheduler.process_mqueue = function (self)
             then
                 -- TODO: handle error when status == false
                 self.actors[msg.to] = nil
+                self.actors_num = self.actors_num - 1
                 self.threads[msg.to] = nil
             end
         end
@@ -100,6 +107,11 @@ Scheduler.process_mqueue = function (self)
     end
 end
 
+--
+-- run scheduler
+--
+-- TODO: return status string
+--
 Scheduler.run = function (self)
     -- start threads
     for name, _ in pairs(self.threads) do
@@ -108,7 +120,13 @@ Scheduler.run = function (self)
 
     self.hub = coroutine.create(self.process_mqueue)
     coroutine.resume(self.hub, self)
-    self.reactor:run()
+
+    -- if there are no actors, do nothing
+    if self.actors_num > 0 then
+        self.reactor:run()
+    end
+
+    -- TODO: clean up everything
 end
 
 -- Actor ---------------------------------------------------------------------

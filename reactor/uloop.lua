@@ -54,4 +54,8 @@ UloopReactor.run = function (self)
     uloop.run()
 end
 
+UloopReactor.cancel = function (self)
+    uloop.cancel()
+end
+
 return UloopReactor
