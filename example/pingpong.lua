@@ -1,8 +1,21 @@
 require "actor"
 
 -- Example -------------------------------------------------------------------
+local reactor = 'luaevent'
+if arg[1] ~= nil then
+    if arg[1] == 'uloop' then
+        reactor = arg[1]
+    elseif arg[1] ~= 'luaevent' then
+        error(string.format(
+            'unknown reactor: %s, usage:\n\n    %s %s [uloop|luaevent]\n',
+            arg[1], arg[-1], arg[0]
+        ))
+    end
+end
 
-sch = Scheduler()
+print('The reactor you use is *'..reactor..'*.')
+
+sch = Scheduler(reactor)
 
 ping = Actor(sch, 'ping')
 ping.callback = function (self, msg)
@@ -32,7 +45,7 @@ pong = Actor(sch, 'pong')
 
 pong.callback = function (self, msg)
     print("pong start")
-    while true do
+    for _ = 1,100 do
         self:listen({
             foo = function (msg)
                 print(

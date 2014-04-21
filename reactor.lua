@@ -56,4 +56,11 @@ AbstractReactor.run = function (self)
     error('Method not implemented.')
 end
 
+--
+-- cancel the reactor
+--
+AbstractReactor.cancel = function (self)
+    error('Method not implemented.')
+end
+
 return AbstractReactor
