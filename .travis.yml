@@ -6,9 +6,9 @@ env:
     - "LUA=lua5.1 REACTOR=uloop"
 
 install:
-  - "sudo apt-get install $LUA -y"
+  - "sudo apt-get install $LUA lib$LUA-0-dev -y"
   - 'if [ $REACTOR = "luaevent" ]; then
-        sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y && 
+        sudo apt-get install lib$LUA-socket2 libevent-dev -y && 
         git clone https://github.com/harningt/luaevent.git &&
         sudo make -C luaevent install ;
      fi'
