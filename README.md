@@ -7,7 +7,7 @@ LuActor - Actor Model for Lua
 
 这个项目的想法受到了以下项目和文章的启发，在此表示感谢
 
-- @cloudwu的[skynet](https://github.com/cloudwu/skynet)以及其[博客](blog.codingnow.com)文章
+- [@cloudwu](https://github.com/cloudwu)的[skynet](https://github.com/cloudwu/skynet)以及其[博客](blog.codingnow.com)文章
 - [gevent](http://www.gevent.org/)
 - [ratchet](https://github.com/icgood/ratchet)
 
@@ -32,12 +32,14 @@ Dependencies
 
 **LuActor** use a [**reactor**](http://en.wikipedia.org/wiki/Reactor_pattern) to monitor all external events (Timeout/FD/...).
 
-For now, it (only) support:
+For now, it support:
 
 - [luaevent](https://github.com/harningt/luaevent)
-  - *NOTE: luaevent v0.4.3 has been tested, older verison may have some issuses (At least for v0.3.2 on Ubuntu 12.04). So please make sure you have the right version of luaevent.*
+  - luaevent v0.4.3 has been tested, older verison may have some issuses (At least for v0.3.2 on Ubuntu 12.04). So please make sure you have the right version of luaevent.
+- [libubox:uloop](https://github.com/xfguo/libubox)
+  - NOTE: **uloop** is a part of libubox which is design for OpenWrt(a GLib like library). For now, it just test with the modified version of libubox. Since the lua binding of uloop is missing the fd operation part.
 
-*reactor.lua* is an abstract layer of the reactor library, so it is very easy to port to others. Like lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...
+`reactor.lua` is an abstract layer of the reactor library, so it is very easy to port to others. Like lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...
 
 Features/Ideas
 --------------
@@ -68,7 +70,7 @@ Examples
 
 Two actors **Ping** and **Pong** receive and send message to each other.
 
-    lua example/pingpang.lua
+    lua example/pingpang.lua [luaevent|uloop] # choose the reactor here
 
 ### Echo Server (TCP)
 
@@ -77,7 +79,7 @@ established, create a new **EchoActor** and let it handle that connection.
 
 Run echo server:
 
-    lua example/echo-server.lua
+    lua example/echo-server.lua [luaevent|uloop] # choose the reactor here
 
 Then, run:
 
