@@ -14,11 +14,14 @@ install:
      fi'
   - 'if [ $REACTOR = "uloop" ]; then 
         git clone https://github.com/xfguo/libubox.git &&
-        cmake libubox &&
-        make -C libubox &&
+        ( 
+            cd libubox &&
+            cmake . && 
+            make
+        ) &&
         ln -sf libubox/libubox.so . &&
-        ln -sf libubox/lua/uloop.so ;
-     fi'
+        ln -sf libubox/lua/uloop.so
+     ;fi'
 
 script:
   - "$LUA -v example/pingpong.lua $REACTOR"
