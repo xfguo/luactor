@@ -7,17 +7,17 @@ env:
 
 install:
   - "sudo apt-get install $LUA -y"
-  - 'if [ $REACTOR = "luaevent" ]; then \
-        sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y ; \
-        git clone https://github.com/harningt/luaevent.git ; \
-        sudo make -C luaevent install ; \
+  - 'if [ $REACTOR = "luaevent" ]; then
+        sudo apt-get install lib$LUA-0-dev lib$LUA-socket2 libevent-dev -y && 
+        git clone https://github.com/harningt/luaevent.git &&
+        sudo make -C luaevent install ;
      fi'
-  - 'if [ $REACTOR = "uloop" ]; then \
-        git clone https://github.com/xfguo/libubox.git; \
-        cmake libubox; \
-        make -C libubox; \
-        ln -sf libubox/libubox.so . ; \
-        ln -sf libubox/lua/uloop.so . ; \
+  - 'if [ $REACTOR = "uloop" ]; then 
+        git clone https://github.com/xfguo/libubox.git &&
+        cmake libubox &&
+        make -C libubox &&
+        ln -sf libubox/libubox.so . &&
+        ln -sf libubox/lua/uloop.so ;
      fi'
 
 script:
