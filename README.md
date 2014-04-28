@@ -1,7 +1,7 @@
 LuActor - Actor Model for Lua
 =============================
 
-[![Build Status](https://travis-ci.org/xfguo/luactor.svg?branch=master)](https://travis-ci.org/xfguo/luactor)
+[![Build Status](https://travis-ci.org/xfguo/luactor.svg?branch=master)](https://travis-ci.org/xfguo/luactor) [![Coverage Status](https://coveralls.io/repos/xfguo/luactor/badge.png?branch=master)](https://coveralls.io/r/xfguo/luactor?branch=master)
 
 一个纯Lua（至少目前）实现的[Actor Model](http://en.wikipedia.org/wiki/Actor_model)的框架。
 
