@@ -1,6 +1,6 @@
 #/bin/bash 
 
-sudo apt-get install -y $LUA $lib$LUA-0-dev luarocks
+sudo apt-get install -y $LUA $lib$LUA-0-dev luarocks col python-pexpect
 
 sudo luarocks install luacov
 sudo luarocks install luajson
