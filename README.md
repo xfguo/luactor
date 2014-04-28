@@ -85,7 +85,7 @@ Then, run:
 
     telnet 127.0.0.1 8080
 
-You can open multiple telnet to test it.
+You can open multiple telnet to test it. If `exit` is send to echo server, all actors will **exit**.
 
 Author
 ------

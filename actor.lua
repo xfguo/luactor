@@ -84,12 +84,9 @@ Scheduler.unregister_event = function (self, name)
 end
 
 Scheduler.process_mqueue = function (self)
-    while true do
+    local finish = false
+    while not finish do
         while not self.mqueue:empty() do
-            if self.actors_num < 0 then
-                self.reactor:cancel()
-                break
-            end
             -- TODO: check msg
             local msg
             msg = self.mqueue:pop()
@@ -101,6 +98,12 @@ Scheduler.process_mqueue = function (self)
                 self.actors[msg.to] = nil
                 self.actors_num = self.actors_num - 1
                 self.threads[msg.to] = nil
+            end
+            
+            if self.actors_num <= 0 then
+                self.reactor:cancel()
+                finish = true
+                break
             end
         end
         coroutine.yield()

@@ -56,5 +56,8 @@ LuaeventReactor.run = function (self)
     self.__ev_base:loop()
 end
 
+LuaeventReactor.cancel = function (self)
+    -- TODO: impl this method
+end
 
 return LuaeventReactor
