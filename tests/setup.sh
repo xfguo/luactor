@@ -1,9 +1,10 @@
 #/bin/bash 
 
-sudo apt-get install -y $LUA $lib$LUA-0-dev luarocks python-pexpect bsdmainutils
+sudo apt-get install -y $LUA $lib$LUA-0-dev luarocks python-pexpect bsdmainutils telnet
 
 sudo luarocks install luacov
 sudo luarocks install luajson
+sudo luarocks install luasocket
 
 if [ $REACTOR = "luaevent" ]; then
    sudo apt-get install lib$LUA-socket2 libevent-dev -y && 

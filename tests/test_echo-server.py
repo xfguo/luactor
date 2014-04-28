@@ -2,9 +2,11 @@ import pexpect
 import sys
 import time
 
+logfile = open("tests/test_echo-server.log", 'w')
+
 try:
     print "TEST START ... WAIT 3 SECOND TO START"
-    prog_tested = pexpect.spawn(sys.argv[1], timeout = 30, logfile = sys.stdout)
+    prog_tested = pexpect.spawn(sys.argv[1], timeout = 30, logfile = logfile)
     
     time.sleep(3)
     
@@ -13,7 +15,7 @@ try:
     c = dict()
     for i in range(6):
         # open a new telnet session
-        c[i] = pexpect.spawn('telnet 127.0.0.1 8080', timeout = 30, logfile = sys.stdout)
+        c[i] = pexpect.spawn('telnet 127.0.0.1 8080', timeout = 30, logfile = logfile)
     
         for j in range(i + 1):
             c[i].sendline(str(i) * (j + 1))
@@ -28,7 +30,7 @@ try:
 
         prog_tested.expect(".*")
         
-    cexit = pexpect.spawn('telnet 127.0.0.1 8080', timeout = 30, logfile = sys.stdout)
+    cexit = pexpect.spawn('telnet 127.0.0.1 8080', timeout = 30, logfile = logfile)
     cexit.sendline("exit")
     cexit.expect("exit")
     prog_tested.expect("TcpManager end...")
