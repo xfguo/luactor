@@ -35,6 +35,7 @@ return {
   -- (exclude overrules include, do not include
   -- the .lua extension, path separator is always '/')
   ["exclude"] = {
+    "util$",
     "luacov$",
     "luacov/reporter$",
     "luacov/defaults$",

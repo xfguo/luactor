@@ -72,6 +72,12 @@ Two actors **Ping** and **Pong** receive and send message to each other.
 
     lua example/pingpang.lua [luaevent|uloop] # choose the reactor here
 
+### Timeout
+
+An actor register a **timeout** event, then wait a timeout message.
+
+    lua example/timeout.lua [luaevent|uloop] # choose the reactor here
+
 ### Echo Server (TCP)
 
 An actor **TcpManager** responses to listen TCP socket, when a new connection is

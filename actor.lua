@@ -57,8 +57,7 @@ Scheduler.register_fd_event = function (self, from, to, name, fd, event)
             })
             coroutine.resume(self.hub)
         end,
-        fd,
-        event
+        fd, event
     )
 end
 
@@ -74,8 +73,7 @@ Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval
                 timeout_interval = timeout_interval,
             })
             coroutine.resume(self.hub)
-        end,
-        timeout_interval
+        end, timeout_interval
     )
 end
 
@@ -92,8 +90,7 @@ Scheduler.process_mqueue = function (self)
             msg = self.mqueue:pop()
             status, what = coroutine.resume(self.threads[msg.to], msg)
             if coroutine.status(self.threads[msg.to]) == 'dead'
-               or status == false
-            then
+               or status == false then
                 -- TODO: handle error when status == false
                 self.actors[msg.to] = nil
                 self.actors_num = self.actors_num - 1
