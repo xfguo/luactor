@@ -36,9 +36,13 @@ UloopReactor.register_fd_event = function (self, name, fd_event_cb, fd, event)
 end
 
 UloopReactor.register_timeout_cb = function (self, name, timeout_cb, timeout_interval)
+    local ti
     self:__check_event_name(name)
 
-    self.__events[name] = uloop.timer(timeout_cb, timeout_interval)
+    -- the time unit of uloop is ms, so convert it to second.
+    ti = math.floor(timeout_interval * 1000)
+  
+    self.__events[name] = uloop.timer(timeout_cb, ti)
 end
 
 UloopReactor.unregister_event = function (self, name)

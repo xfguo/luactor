@@ -15,12 +15,20 @@ LuaeventReactor.__init__ = function (self)
     self.__events = {}
 end
 
-LuaeventReactor.__register_event = function (self, name, fd_event_cb, fd, event, timeout)
+LuaeventReactor.__register_event = function (self, name, event_cb, fd, event, timeout)
     if self.__events[name] ~= nil then
         error("event has been registered")
     end
 
-    self.__events[name] = self.__ev_base:addevent(fd, event, fd_event_cb, timeout)
+
+    self.__events[name] = self.__ev_base:addevent(fd, event, 
+        function ()
+            event_cb()
+
+            -- TODO: here just trigger once, try support trigger persist.
+            return timeout and core.LEAVE or nil
+        end,
+    timeout)
 end
 
 LuaeventReactor.register_fd_event = function (self, name, fd_event_cb, fd, event)

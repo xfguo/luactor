@@ -75,7 +75,7 @@ Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval
             })
             coroutine.resume(self.hub)
         end,
-        fdevent
+        timeout_interval
     )
 end
 
@@ -124,8 +124,8 @@ Scheduler.run = function (self)
     self.hub = coroutine.create(self.process_mqueue)
     coroutine.resume(self.hub, self)
 
-    -- if there are no actors, do nothing
-    if self.actors_num > 0 then
+    -- run until there are no actors
+    while self.actors_num > 0 do
         self.reactor:run()
     end
 

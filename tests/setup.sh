@@ -7,7 +7,7 @@ sudo luarocks install luajson
 sudo luarocks install luasocket
 
 if [ $REACTOR = "luaevent" ]; then
-   sudo apt-get install lib$LUA-socket2 libevent-dev -y && 
+   sudo apt-get install libevent-dev -y && 
    rm -rf luaevent &&
    git clone https://github.com/harningt/luaevent.git &&
    sudo make -C luaevent install ;
