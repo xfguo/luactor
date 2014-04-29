@@ -98,9 +98,9 @@ TcpManager.callback = function (self, msg)
     local conn_no = 0
 
     print('TcpManager start...')
-    print("Use `telnet localhost 8080` to test it")
+    print("Use `telnet localhost 48888` to test it")
 
-    self.server = assert(socket.bind("*", 8080))
+    self.server = assert(socket.bind("*", 48888))
 
     -- register fd event for new connection
     self.sch:register_fd_event(
