@@ -17,8 +17,8 @@ print('The reactor you use is *'..reactor..'*.')
 
 sch = Scheduler(reactor)
 
-ping = Actor(sch, 'ping')
-ping.callback = function (self, msg)
+Ping = util.class(Actor)
+Ping.callback = function (self, msg)
     print("ping start")
     for _ = 1,100 do
         self:listen({
@@ -41,9 +41,9 @@ ping.callback = function (self, msg)
     end
 end
 
-pong = Actor(sch, 'pong')
+Pong = util.class(Actor)
 
-pong.callback = function (self, msg)
+Pong.callback = function (self, msg)
     print("pong start")
     for _ = 1,100 do
         self:listen({
@@ -66,10 +66,23 @@ pong.callback = function (self, msg)
     end
 end
 
---
+-- create Ping and Pong actors by send messages to scheduler
+sch:push_msg({
+    to = 'sch',                 -- to
+    cmd = 'create',             -- register command
+    name = "ping",              -- new actor's name
+    actor = Ping,               -- actor class
+    args = nil,                 -- arguments
+})
 
-sch:register_actor('ping', ping)
-sch:register_actor('pong', pong)
+sch:push_msg({
+    to = 'sch',                 -- to
+    cmd = 'create',             -- register command
+    name = "pong",              -- new actor's name
+    actor = Pong,               -- actor class
+    args = nil,                 -- arguments
+})
+
 
 -- send a fake pong msg to ping to start the ping-pong
 sch:push_msg({

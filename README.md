@@ -51,17 +51,19 @@ Features/Ideas
 - Scheduler有唯一的队列处理所有其他Actor发来的消息，且一次只处理一个消息。
 - Actor向Scheduler注册timeout、signal或者fd等事件，事件触发后，Scheduler会唤醒对应的Actor
 - Scheduler并不负责接收socket等操作，只负责监听和通知相应事件的发生。Actor才负责这一点。
+- 任何Actor可以通过发送指定消息给Scheduler来实现以下功能
+  - 新建一个Actor
+  - 新建一个监听fd或者系统信号量的事件，或者一个超时事件
 
 ### TODO
 
+- 任何一个Acotr有且只有send和listen两个自有方法用于发送和监听消息，Scheduler的所有其他部分都应该是不可见的。
 - 广播通过将一条message发给多个Actor实现
 - 每个message包含session和type用于实现REQ/RESP等其他模式
   - session用于标识一个有上下文的跨Actor的请求
   - type用于区分请求的类型，REQ or RSP
 - Scheduler由唯一的，不可占用的name，用于其他actor和Scheduler通信
-- 任何Actor可以通过发送指定消息给Scheduler来实现以下功能
-  - 新建和销毁一个Actor
-  - 新建一个监听fd或者系统信号量的事件，或者一个超时事件
+- Scheduler是否有必要支持销毁一个Actor?
 
 Examples
 --------

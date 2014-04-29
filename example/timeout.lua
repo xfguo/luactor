@@ -17,18 +17,20 @@ print('The reactor you use is *'..reactor..'*.')
 
 sch = Scheduler(reactor)
 
-timeout = Actor(sch, 'timeout')
-timeout.callback = function (self, msg)
+Timeout = util.class(Actor)
+
+Timeout.callback = function (self, msg)
     print ('Timer Actor start...')
     print ('Register 1s timeout.')
-    -- register fd event for new data coming
-    self.sch:register_timeout_cb(
-        self.my_name,           -- from
-        self.my_name,           -- to
-        "timeout",              -- event name
-        1                       -- timeout interval
-    )
-    
+    -- register timeout event
+    self:send({
+        to = 'sch',                 -- to
+        cmd = 'register',           -- register command
+        event = 'timeout',          -- event type
+        ev_name = self.my_name,     -- event name
+        timeout = 1                 -- timeout: 1s
+    })
+
     print ('Wait 1s')
     self:listen({
         timeout = function (msg)
@@ -43,5 +45,11 @@ timeout.callback = function (self, msg)
     print ('Time Actor end...')
 end
 
-sch:register_actor('timeout', timeout)
+sch:push_msg({
+    to = 'sch',                 -- to
+    cmd = 'create',             -- register command
+    name = "timeout",           -- new actor's name
+    actor = Timeout,            -- actor class
+    args = nil,                 -- arguments
+})
 sch:run()

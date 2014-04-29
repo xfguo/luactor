@@ -12,13 +12,14 @@ Scheduler.__init__ = function (self, reactor)
         -- for now, default reactor driver is luaevent
         Reactor = require "reactor.luaevent"
     end
-        
+
     self.mqueue = Queue()
     self.reactor = Reactor()
     self.actors = {}
     self.actors_num = 0
     self.threads = {}
     self.hub = nil -- the scheduler coroutine
+    self.my_name = 'sch'
 end
 
 Scheduler.register_actor = function (self, name, actor)
@@ -81,6 +82,52 @@ Scheduler.unregister_event = function (self, name)
     self.reactor:unregister_event(name)
 end
 
+--
+-- handle service requested by other actors
+--
+-- the servie included:
+--   - create/destory an actor
+--   - register a fd/timeout event
+--
+Scheduler.handle_service = function (self, msg)
+    -- TODO: parameters of msg should be checked.
+    if msg.cmd == 'register' then
+        if msg.event == 'timeout' then
+            self:register_timeout_cb(
+                self.my_name,           -- from
+                msg.from,               -- to
+                msg.ev_name,            -- event name
+                msg.timeout             -- timeout
+            )
+        elseif msg.event == 'fd' then
+            local fd_event
+
+            -- convert fd event from string to value
+            if msg.fd_event == 'read' then
+                fd_event = self.reactor.FD_READ
+            elseif msg.fd_event == 'write' then
+                fd_event = self.reactor.FD_WRITE
+            else
+                error("unknown fd event type")
+            end
+
+            self:register_fd_event(
+                self.my_name,           -- from
+                msg.from,               -- to
+                msg.ev_name,            -- event name
+                msg.fd,                 -- fd
+                fd_event                -- fd event
+            )
+        else
+            error("unknown event type when register event")
+        end
+    elseif msg.cmd == 'create' then
+        local new_actor = msg.actor(self, msg.name, unpack(msg.args or {}))
+        self:register_actor(msg.name, new_actor)
+        self:start_actor(msg.name)
+    end
+end
+
 Scheduler.process_mqueue = function (self)
     local finish = false
     while not finish do
@@ -88,19 +135,24 @@ Scheduler.process_mqueue = function (self)
             -- TODO: check msg
             local msg
             msg = self.mqueue:pop()
-            status, what = coroutine.resume(self.threads[msg.to], msg)
-            if coroutine.status(self.threads[msg.to]) == 'dead'
-               or status == false then
-                -- TODO: handle error when status == false
-                self.actors[msg.to] = nil
-                self.actors_num = self.actors_num - 1
-                self.threads[msg.to] = nil
-            end
-            
-            if self.actors_num <= 0 then
-                self.reactor:cancel()
-                finish = true
-                break
+
+            if msg.to == self.my_name then
+                self:handle_service(msg)
+            else
+                status, what = coroutine.resume(self.threads[msg.to], msg)
+                if coroutine.status(self.threads[msg.to]) == 'dead'
+                   or status == false then
+                    -- TODO: handle error when status == false
+                    self.actors[msg.to] = nil
+                    self.actors_num = self.actors_num - 1
+                    self.threads[msg.to] = nil
+                end
+
+                if self.actors_num <= 0 then
+                    self.reactor:cancel()
+                    finish = true
+                    break
+                end
             end
         end
         coroutine.yield()

@@ -27,13 +27,14 @@ EchoActor.callback = function(self)
     print(string.format('EchoActor[%s] start...', self.my_name))
 
     -- register fd event for new data coming
-    self.sch:register_fd_event(
-        self.my_name,           -- from
-        self.my_name,           -- to
-        self.my_name,           -- event name
-        self.conn,              -- accepted socket
-        sch.reactor.FD_READ     -- event
-    )
+    self:send({
+        to = 'sch',                 -- to
+        cmd = 'register',           -- register command
+        event = 'fd',               -- event type
+        ev_name = self.my_name,     -- event name
+        fd = self.conn,             -- fd want to listen
+        fd_event = "read",          -- fd event type
+    })
 
     local finish = false
     while not finish do
@@ -102,14 +103,15 @@ TcpManager.callback = function (self, msg)
 
     self.server = assert(socket.bind("*", 48888))
 
-    -- register fd event for new connection
-    self.sch:register_fd_event(
-        self.my_name,       -- from
-        self.my_name,       -- to
-        self.my_name,       -- event name
-        self.server,        -- accepted socket
-        sch.reactor.FD_READ -- event
-    )
+    -- register fd event for accept new connection
+    self:send({
+        to = 'sch',                 -- to
+        cmd = 'register',           -- register command
+        event = 'fd',               -- event type
+        ev_name = self.my_name,     -- event name
+        fd = self.server,           -- fd want to listen
+        fd_event = "read",          -- fd event type
+    })
 
     local finish = false
     while not finish do
@@ -123,10 +125,14 @@ TcpManager.callback = function (self, msg)
                 local conn_name = 'tcp_conn_'..conn_no
                 conn_no = conn_no + 1
 
-                -- create a new EchoActor, then register and start it.
-                local conn_actor = EchoActor(self.sch, conn_name, conn)
-                self.sch:register_actor(conn_name, conn_actor)
-                self.sch:start_actor(conn_name)
+                -- create a new EchoActor by send a message to scheduler
+                self:send({
+                    to = 'sch',                 -- to
+                    cmd = 'create',             -- register command
+                    name = conn_name,           -- new actor's name
+                    actor = EchoActor,          -- actor class
+                    args = {conn,},             -- arguments
+                })
 
                 -- attach the name of echo actor to the pool
                 self.active_echo_actors[conn_name] = true
@@ -171,6 +177,12 @@ end
 print('The reactor you use is *'..reactor..'*.')
 
 sch = Scheduler(reactor)
-tcp_manager = TcpManager(sch, "tcp_manager")
-sch:register_actor('tcp_manager', tcp_manager)
+-- create a new TcpManager by send a message to scheduler
+sch:push_msg({
+    to = 'sch',                 -- to
+    cmd = 'create',             -- register command
+    name = "tcp_manager",       -- new actor's name
+    actor = TcpManager,         -- actor class
+    args = nil,                 -- arguments
+})
 sch:run()
