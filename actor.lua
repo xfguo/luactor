@@ -1,7 +1,33 @@
 util = require "util"
 require "queue"
 
--- Scheduler -----------------------------------------------------------------
+-------------------------------------------------------------------------------
+-- Coroutine safe xpcall and pcall versions modified for luactor
+--
+-- Encapsulates the protected calls with a coroutine based loop, so errors can
+-- be dealed without the usual Lua 5.x pcall/xpcall issues with coroutines
+-- yielding inside the call to pcall or xpcall.
+--
+-- Authors: Roberto Ierusalimschy and Andre Carregal
+-- Contributors: Thomas Harning Jr., Ignacio Burgueño, Fabio Mascarenhas
+--
+-- Copyright 2005 - Kepler Project (www.keplerproject.org)
+-------------------------------------------------------------------------------
+
+local pack = table.pack or function(...) return {n = select("#", ...), ...} end
+
+local handle_return_value = function (err, co, status, ...)
+    if not status then
+        return false, err(debug.traceback(co, (...)), ...)
+    end
+    return true, ...
+end
+
+local perform_resume = function (err, co, ...)
+    return handle_return_value(err, co, coroutine.resume(co, ...))
+end
+
+-- Scheduler ------------------------------------------------------------------
 Scheduler = util.class()
 
 Scheduler.__init__ = function (self, reactor)
@@ -17,26 +43,57 @@ Scheduler.__init__ = function (self, reactor)
     self.reactor = Reactor()
     self.actors = {}
     self.actors_num = 0
-    self.threads = {}
-    self.hub = nil -- the scheduler coroutine
+    self.threads = {} -- the scheduler coroutine will be "_"
+    self.creators = {} -- which actor register the new actor
     self.my_name = 'sch'
 end
 
-Scheduler.register_actor = function (self, name, actor)
+Scheduler.register_actor = function (self, name, actor, creator)
     if self.actors[name] ~= nil or self.threads[name] ~= nil then
         error("the actor name has been registered")
     end
     self.actors[name] = actor
     self.actors_num = self.actors_num + 1
 
-    thread = coroutine.create(actor.callback)
+    -- reference from coxpcall project
+    local res, thread = pcall(coroutine.create, actor.callback)
+    if not res then
+        local newf = function(...) return f(...) end
+        thread = coroutine.create(newf)
+    end
     self.threads[name] = thread
+    self.creators[name] = creator
 end
 
 Scheduler.start_actor = function (self, name)
-    status, what = coroutine.resume(self.threads[name], self.actors[name])
-    -- TODO: process status and what
-    return status, what
+    return perform_resume(err, self.threads[name], self.actors[name], self)
+end
+
+Scheduler.resume_actor = function (self, name, ...)
+    local thread = self.threads[name]
+    local status, what = perform_resume(pack, thread, ...)
+
+    -- send the failed actor to its creator. if it creator is
+    -- dead, then just destory it.
+    if status == false and self.creators[name] ~= nil then
+        self:push_msg({
+            to = self.creators[name],
+            from = self.my_name,
+            cmd = "actor_error",
+            actor = self.actors[name],
+            error = what,
+        })
+    end
+
+    if coroutine.status(self.threads[name]) == 'dead'
+       or status == false then
+        -- TODO: handle error when status == false
+        self.actors[name] = nil
+        self.actors_num = self.actors_num - 1
+        self.threads[name] = nil
+        self.creators[name] = nil
+    end
+
 end
 
 Scheduler.push_msg = function (self, msg)
@@ -48,6 +105,13 @@ Scheduler.register_fd_event = function (self, from, to, name, fd, event)
     self.reactor:register_fd_event(
         name,
         function (events)
+            -- unregister the event if the actor was dead.
+            -- 
+            --  XXX: what if the name is reused?
+            --       or any other problems?
+            if self.actors[to] == nil then
+                self.reactor:unregister_event(name)
+            end
             -- push event message to mqueue
             self.mqueue:push({
                 from = from,
@@ -56,7 +120,7 @@ Scheduler.register_fd_event = function (self, from, to, name, fd, event)
                 event = event,
                 fd = fd,
             })
-            coroutine.resume(self.hub)
+            self:resume_actor('_', self.actors[to])
         end,
         fd, event
     )
@@ -73,7 +137,7 @@ Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval
                 cmd = "timeout",
                 timeout_interval = timeout_interval,
             })
-            coroutine.resume(self.hub)
+            self:resume_actor('_', self.actors[to])
         end, timeout_interval
     )
 end
@@ -123,8 +187,9 @@ Scheduler.handle_service = function (self, msg)
         end
     elseif msg.cmd == 'create' then
         local new_actor = msg.actor(self, msg.name, unpack(msg.args or {}))
-        self:register_actor(msg.name, new_actor)
-        self:start_actor(msg.name)
+        local creator = msg.from
+        self:register_actor(msg.name, new_actor, creator)
+        self:resume_actor(msg.name, new_actor)
     end
 end
 
@@ -135,19 +200,12 @@ Scheduler.process_mqueue = function (self)
             -- TODO: check msg
             local msg
             msg = self.mqueue:pop()
-
             if msg.to == self.my_name then
                 self:handle_service(msg)
+            elseif self.threads[msg.to] == nil then
+                print("drop it")
             else
-                status, what = coroutine.resume(self.threads[msg.to], msg)
-                if coroutine.status(self.threads[msg.to]) == 'dead'
-                   or status == false then
-                    -- TODO: handle error when status == false
-                    self.actors[msg.to] = nil
-                    self.actors_num = self.actors_num - 1
-                    self.threads[msg.to] = nil
-                end
-
+                self:resume_actor(msg.to, msg)
                 if self.actors_num <= 0 then
                     self.reactor:cancel()
                     finish = true
@@ -166,12 +224,22 @@ end
 --
 Scheduler.run = function (self)
     -- start threads
-    for name, _ in pairs(self.threads) do
-        self:start_actor(name)
+    for name, actor in pairs(self.actors) do
+        self:resume_actor(name, actor)
     end
 
-    self.hub = coroutine.create(self.process_mqueue)
-    coroutine.resume(self.hub, self)
+    -- reference from coxpcall project
+    local res, thread = pcall(coroutine.create, self.process_mqueue)
+    if not res then
+        local newf = function(...) return f(...) end
+        thread = coroutine.create(newf)
+    end
+
+    -- the schedular coroutine should have its creator and the
+    -- error should be processed.
+    self.threads['_'] = thread
+    
+    self:resume_actor('_', self)
 
     -- run until there are no actors
     while self.actors_num > 0 do

@@ -56,6 +56,8 @@ EchoActor.callback = function(self)
                             to = 'tcp_manager', 
                             cmd = 'exit'
                         })
+                    elseif line == "raise" then
+                        error("raise error")
                     end
                 else
                     -- connection close
@@ -77,6 +79,7 @@ EchoActor.callback = function(self)
     end
 
     -- unregister fd event, close and exit
+    -- TODO: unregister event by send a message
     self.sch:unregister_event(self.my_name)
     self.conn:close()
 
@@ -141,6 +144,22 @@ TcpManager.callback = function (self, msg)
             -- wait finish message from echo actors
             echo_actor_finished = function (msg)
                 self.active_echo_actors[msg.from] = nil
+            end,
+            
+            -- handle the error of echo actor
+            -- close the connection and unregister the related events.
+            actor_error = function (msg)
+                local failed_echo_actor = msg.actor
+
+                failed_echo_actor.conn:close()
+                -- TODO: unregister event by send a message
+                self.sch:unregister_event(failed_echo_actor.my_name)
+                print(string.format(
+                    'Echo actor: [%s] failed: \ntrace:\n\t%s\nerror: %s',
+                    failed_echo_actor.my_name,
+                    string.gsub(msg.error[1], '\n', '\n\t'),
+                    msg.error[2]
+                ))
             end,
 
             -- wait an exit message sent from echo actor
