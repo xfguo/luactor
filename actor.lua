@@ -1,32 +1,6 @@
 util = require "util"
 require "queue"
 
--------------------------------------------------------------------------------
--- Coroutine safe xpcall and pcall versions modified for luactor
---
--- Encapsulates the protected calls with a coroutine based loop, so errors can
--- be dealed without the usual Lua 5.x pcall/xpcall issues with coroutines
--- yielding inside the call to pcall or xpcall.
---
--- Authors: Roberto Ierusalimschy and Andre Carregal
--- Contributors: Thomas Harning Jr., Ignacio Burgueño, Fabio Mascarenhas
---
--- Copyright 2005 - Kepler Project (www.keplerproject.org)
--------------------------------------------------------------------------------
-
-local pack = table.pack or function(...) return {n = select("#", ...), ...} end
-
-local handle_return_value = function (err, co, status, ...)
-    if not status then
-        return false, err(debug.traceback(co, (...)), ...)
-    end
-    return true, ...
-end
-
-local perform_resume = function (err, co, ...)
-    return handle_return_value(err, co, coroutine.resume(co, ...))
-end
-
 -- Scheduler ------------------------------------------------------------------
 Scheduler = util.class()
 
@@ -39,7 +13,7 @@ Scheduler.__init__ = function (self, reactor)
         Reactor = require "reactor.luaevent"
     end
 
-    self.mqueue = Queue()
+    self.mqueue = util.Queue()
     self.reactor = Reactor()
     self.actors = {}
     self.actors_num = 0
@@ -65,13 +39,9 @@ Scheduler.register_actor = function (self, name, actor, creator)
     self.creators[name] = creator
 end
 
-Scheduler.start_actor = function (self, name)
-    return perform_resume(err, self.threads[name], self.actors[name], self)
-end
-
 Scheduler.resume_actor = function (self, name, ...)
     local thread = self.threads[name]
-    local status, what = perform_resume(pack, thread, ...)
+    local status, what = util.perform_resume(util.pack, thread, ...)
 
     -- send the failed actor to its creator. if it creator is
     -- dead, then just destory it.
@@ -87,7 +57,6 @@ Scheduler.resume_actor = function (self, name, ...)
 
     if coroutine.status(self.threads[name]) == 'dead'
        or status == false then
-        -- TODO: handle error when status == false
         self.actors[name] = nil
         self.actors_num = self.actors_num - 1
         self.threads[name] = nil
@@ -130,6 +99,13 @@ Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval
     self.reactor:register_timeout_cb(
         name,
         function (events)
+            -- unregister the event if the actor was dead.
+            -- 
+            --  XXX: what if the name is reused?
+            --       or any other problems?
+            if self.actors[to] == nil then
+                self.reactor:unregister_event(name)
+            end
             -- push event message to mqueue
             self.mqueue:push({
                 from = from,
