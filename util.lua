@@ -1,4 +1,21 @@
+--
+-- Utility library
+--
+
+local string = require "string"
+local getmetatable, setmetatable = getmetatable, setmetatable
+local tostring, type, assert = tostring, type, assert
+local ipairs, pairs, next, loadstring = ipairs, pairs, next, loadstring
+local error = error
+local table = table
+local coroutine = coroutine
+local debug = debug
+local select = select
+
+module("util")
+
 --[[
+
 LuCI - Utility library
 
 Description:
@@ -20,29 +37,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ]]--
-
-local string = require "string"
-local getmetatable, setmetatable = getmetatable, setmetatable
-local tostring, type, assert = tostring, type, assert
-local ipairs, pairs, next, loadstring = ipairs, pairs, next, loadstring
-local error = error
-
-module("util")
-
--- Pythonic string formatting extension
---
-getmetatable("").__mod = function(a, b)
-	if not b then
-		return a
-	elseif type(b) == "table" then
-		for k, _ in pairs(b) do if type(b[k]) == "userdata" then b[k] = tostring(b[k]) end end
-		return a:format(unpack(b))
-	else
-		if type(b) == "userdata" then b = tostring(b) end
-		return a:format(b)
-	end
-end
-
 
 --
 -- Class helper routines
@@ -95,4 +89,60 @@ function instanceof(object, class)
 		meta = getmetatable(meta.__index)
 	end
 	return false
+end
+
+--------------------------------------------------------------------------------
+-- Simple Queue
+
+Queue = class()
+
+Queue.__init__ = function (self)
+    self.__queue = {}
+    self.first = 0
+    self.last = -1
+end
+
+Queue.push = function (self, value)
+    local first = self.first - 1
+    self.first = first
+    self.__queue[first] = value
+end
+    
+Queue.pop = function (self)
+    local last = self.last
+    if self.first > last then error("queue is empty") end
+    local value = self.__queue[last]
+    self.__queue[last] = nil         -- to allow garbage collection
+    self.last = last - 1
+    return value
+end
+
+Queue.empty = function (self)
+    return self.first > self.last and true or false
+end
+
+-------------------------------------------------------------------------------
+-- Coroutine safe xpcall and pcall versions modified for luactor
+--
+-- Encapsulates the protected calls with a coroutine based loop, so errors can
+-- be dealed without the usual Lua 5.x pcall/xpcall issues with coroutines
+-- yielding inside the call to pcall or xpcall.
+--
+-- Authors: Roberto Ierusalimschy and Andre Carregal
+-- Contributors: Thomas Harning Jr., Ignacio Burgueño, Fabio Mascarenhas
+--
+-- Copyright 2005 - Kepler Project (www.keplerproject.org)
+-------------------------------------------------------------------------------
+
+pack = table.pack or function(...) return {n = select("#", ...), ...} end
+
+local handle_return_value = function (err, co, status, ...)
+    if not status then
+        return false, err(debug.traceback(co, (...)), ...)
+    end
+    return true, ...
+end
+
+perform_resume = function (err, co, ...)
+    return handle_return_value(err, co, coroutine.resume(co, ...))
 end
