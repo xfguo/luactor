@@ -39,7 +39,7 @@ Scheduler.register_actor = function (self, name, actor, creator)
 end
 
 Scheduler.resume_actor = function (self, name, ...)
-    local thread = self.threads[name]
+    local thread = assert(self.threads[name])
     local status, what = util.perform_resume(util.pack, thread, ...)
 
     -- send the failed actor to its creator. if it creator is
@@ -54,6 +54,7 @@ Scheduler.resume_actor = function (self, name, ...)
         })
     end
 
+    -- if an actor is dead or failed, destory the relevant info.
     if coroutine.status(self.threads[name]) == 'dead'
        or status == false then
         self.actors[name] = nil
@@ -171,18 +172,18 @@ end
 Scheduler.process_mqueue = function (self)
     local finish = false
     while not finish do
+        -- process the message in the queue one by one until empty.
         while not self.mqueue:empty() do
-            -- TODO: check msg
-            local msg
-            msg = self.mqueue:pop()
+            local msg = self.mqueue:pop()
             if msg.to == self.my_name then
                 self:handle_service(msg)
             elseif self.threads[msg.to] == nil then
                 -- drop this msg
-                --
                 -- TODO: what we can do before the msg is dropped.
             else
                 self:resume_actor(msg.to, msg)
+
+                -- if there is no running actor, everything should be done.
                 if self.actors_num <= 0 then
                     self.reactor:cancel()
                     finish = true
@@ -190,6 +191,7 @@ Scheduler.process_mqueue = function (self)
                 end
             end
         end
+        -- yield out to mainthread to wait next event.
         coroutine.yield()
     end
 end
@@ -243,8 +245,11 @@ end
 Actor.listen = function (self, what)
     -- what is the set of the msg you want listen
     msg = coroutine.yield(what)
-    what[msg.cmd](msg)
-    -- TODO: handle unknown message cmd
+    if msg.cmd ~= nil and type(what[msg.cmd]) == 'function' then
+        what[msg.cmd](msg)
+    else
+        error("unknown message command type")
+    end
 end
 
 Actor.callback = function (self, msg)

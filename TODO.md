@@ -12,3 +12,4 @@ TODO List
 - 用户无法看到Schedular，也不用声明，Schedular由最开始的Actor创建。
 - send操作应该把to和cmd从消息里分离出来。
 - sch改为_ ?用来代表系统？
+- 协程的调试是个难题，增加debug模块，在debug功能开启的情况下，支持backtrace近N次调度过程。
