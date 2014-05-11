@@ -91,7 +91,11 @@ Then, run:
 
     telnet 127.0.0.1 8080
 
-You can open multiple telnet to test it. If `exit` is send to echo server, all actors will **exit**.
+You can open multiple telnet to test it. 
+    
+Some operations for echo server.
+  - If `exit` is send to echo server, all actors will **exit**.
+  - If `raise` is send to echo server, the actor will raise an error but **TcpManager** will handle it.
 
 Author
 ------
