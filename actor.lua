@@ -161,10 +161,10 @@ Scheduler.handle_service = function (self, msg)
             error("unknown event type when register event")
         end
     elseif msg.cmd == 'create' then
-        local new_actor = msg.actor(self, msg.name, unpack(msg.args or {}))
+        local new_actor = msg.actor(self, msg.name)
         local creator = msg.from
         self:register_actor(msg.name, new_actor, creator)
-        self:resume_actor(msg.name, new_actor)
+        self:resume_actor(msg.name, new_actor, unpack(msg.args or {}))
     end
 end
 
@@ -178,7 +178,9 @@ Scheduler.process_mqueue = function (self)
             if msg.to == self.my_name then
                 self:handle_service(msg)
             elseif self.threads[msg.to] == nil then
-                print("drop it")
+                -- drop this msg
+                --
+                -- TODO: what we can do before the msg is dropped.
             else
                 self:resume_actor(msg.to, msg)
                 if self.actors_num <= 0 then

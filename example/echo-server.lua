@@ -18,12 +18,9 @@ local socket = require("socket")
 --
 EchoActor = util.class(Actor)
 
-EchoActor.__init__ = function(self, sch, name, conn)
-    Actor.__init__(self, sch, name)
+EchoActor.callback = function(self, conn)
     self.conn = conn
-end
 
-EchoActor.callback = function(self)
     print(string.format('EchoActor[%s] start...', self.my_name))
 
     -- register fd event for new data coming
@@ -93,12 +90,8 @@ end
 --
 TcpManager = util.class(Actor)
 
-TcpManager.__init__ = function(self, sch, name)
-    Actor.__init__(self, sch, name)
+TcpManager.callback = function (self)
     self.active_echo_actors = {}
-end
-
-TcpManager.callback = function (self, msg)
     local conn_no = 0
 
     print('TcpManager start...')

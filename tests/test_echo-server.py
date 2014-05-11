@@ -11,7 +11,7 @@ try:
     prog_tested.expect("TcpManager start...")
 
     print ">>> Test raise an error."
-    c_err = pexpect.spawn('telnet 127.0.0.1 48888', timeout = 100, logfile = logfile)
+    c_err = pexpect.spawn('telnet 127.0.0.1 48888', timeout = 300, logfile = logfile)
     c_err.sendline("hello")
     c_err.expect("hello")
     c_err.sendline("raise")

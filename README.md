@@ -49,8 +49,8 @@ Features/Ideas
 - 每个Actor支持同时监听有限个消息，并且可以向任何其他Actor无阻塞的发送消息
 - Actor有唯一的ID或名字，作为他人发送消息到自己的标识。
 - Scheduler有唯一的队列处理所有其他Actor发来的消息，且一次只处理一个消息。
-- Actor向Scheduler注册timeout、signal或者fd等事件，事件触发后，Scheduler会唤醒对应的Actor
-- Scheduler并不负责接收socket等操作，只负责监听和通知相应事件的发生。Actor才负责真实事件的处理。
+- Actor向Scheduler注册timeout、signal或者fd等事件，事件触发后，Scheduler发送一条消息给对应的Actor，用于通知对应的Actor该事件的发生。
+- Scheduler并不负责接收socket等操作，只负责监听和**通知**相应事件的发生。Actor才负责**处理**外部事件。
 - 任何Actor可以通过发送指定消息给Scheduler来实现以下功能
   - 新建一个Actor
   - 新建一个监听fd或者系统信号量的事件，或者一个超时事件
