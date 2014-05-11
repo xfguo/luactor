@@ -1,5 +1,4 @@
 util = require "util"
-require "queue"
 
 -- Scheduler ------------------------------------------------------------------
 Scheduler = util.class()
