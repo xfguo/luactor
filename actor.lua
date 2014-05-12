@@ -41,17 +41,18 @@ end
 Scheduler.resume_actor = function (self, name, ...)
     local thread = assert(self.threads[name])
     local status, what = util.perform_resume(util.pack, thread, ...)
-
     -- send the failed actor to its creator. if it creator is
     -- dead, then just destory it.
     if status == false and self.creators[name] ~= nil then
-        self:push_msg({
-            to = self.creators[name],
-            from = self.my_name,
-            cmd = "actor_error",
-            actor = self.actors[name],
-            error = what,
-        })
+        self:push_msg(
+            self.my_name,               -- from
+            self.creators[name],        -- to
+            "actor_error",              -- cmd
+            {
+                actor = self.actors[name],
+                error = what,
+            }                           -- error message
+        )
     end
 
     -- if an actor is dead or failed, destory the relevant info.
@@ -65,9 +66,9 @@ Scheduler.resume_actor = function (self, name, ...)
 
 end
 
-Scheduler.push_msg = function (self, msg)
+Scheduler.push_msg = function (self, from, to, cmd, msg)
     -- TODO: if session is nil, create a unique one
-    self.mqueue:push(msg)
+    self.mqueue:push({from, to, cmd, msg})
 end
 
 Scheduler.register_fd_event = function (self, from, to, name, fd, event)
@@ -75,20 +76,19 @@ Scheduler.register_fd_event = function (self, from, to, name, fd, event)
         name,
         function (events)
             -- unregister the event if the actor was dead.
-            -- 
+            --
             --  XXX: what if the name is reused?
             --       or any other problems?
             if self.actors[to] == nil then
                 self.reactor:unregister_event(name)
             end
             -- push event message to mqueue
-            self.mqueue:push({
-                from = from,
-                to = to,
-                cmd = "fd_event",
-                event = event,
-                fd = fd,
-            })
+            self:push_msg(from, to, "fd_event",
+                {
+                    event = event,
+                    fd = fd,
+                }
+            )
             self:resume_actor('_', self.actors[to])
         end,
         fd, event
@@ -100,19 +100,18 @@ Scheduler.register_timeout_cb = function (self, from, to, name, timeout_interval
         name,
         function (events)
             -- unregister the event if the actor was dead.
-            -- 
+            --
             --  XXX: what if the name is reused?
             --       or any other problems?
             if self.actors[to] == nil then
                 self.reactor:unregister_event(name)
             end
             -- push event message to mqueue
-            self.mqueue:push({
-                from = from,
-                to = to,
-                cmd = "timeout",
-                timeout_interval = timeout_interval,
-            })
+            self:push_msg(from, to, "timeout",
+                {
+                    timeout_interval = timeout_interval,
+                }
+            )
             self:resume_actor('_', self.actors[to])
         end, timeout_interval
     )
@@ -126,16 +125,17 @@ end
 -- handle service requested by other actors
 --
 -- the servie included:
---   - create/destory an actor
+--   - create an actor
 --   - register a fd/timeout event
+--   - TODO: destory an actor
 --
-Scheduler.handle_service = function (self, msg)
+Scheduler.handle_service = function (self, from, cmd, msg)
     -- TODO: parameters of msg should be checked.
-    if msg.cmd == 'register' then
+    if cmd == 'register' then
         if msg.event == 'timeout' then
             self:register_timeout_cb(
                 self.my_name,           -- from
-                msg.from,               -- to
+                from,                   -- to
                 msg.ev_name,            -- event name
                 msg.timeout             -- timeout
             )
@@ -153,7 +153,7 @@ Scheduler.handle_service = function (self, msg)
 
             self:register_fd_event(
                 self.my_name,           -- from
-                msg.from,               -- to
+                from,                   -- to
                 msg.ev_name,            -- event name
                 msg.fd,                 -- fd
                 fd_event                -- fd event
@@ -161,11 +161,13 @@ Scheduler.handle_service = function (self, msg)
         else
             error("unknown event type when register event")
         end
-    elseif msg.cmd == 'create' then
+    elseif cmd == 'create' then
         local new_actor = msg.actor(self, msg.name)
-        local creator = msg.from
+        local creator = from
         self:register_actor(msg.name, new_actor, creator)
         self:resume_actor(msg.name, new_actor, unpack(msg.args or {}))
+    else
+        -- TODO: handle unknown message
     end
 end
 
@@ -174,14 +176,14 @@ Scheduler.process_mqueue = function (self)
     while not finish do
         -- process the message in the queue one by one until empty.
         while not self.mqueue:empty() do
-            local msg = self.mqueue:pop()
-            if msg.to == self.my_name then
-                self:handle_service(msg)
-            elseif self.threads[msg.to] == nil then
+            local from, to, cmd, msg = unpack(self.mqueue:pop())
+            if to == self.my_name then
+                self:handle_service(from, cmd, msg)
+            elseif self.threads[to] == nil then
                 -- drop this msg
                 -- TODO: what we can do before the msg is dropped.
             else
-                self:resume_actor(msg.to, msg)
+                self:resume_actor(to, from, cmd, msg)
 
                 -- if there is no running actor, everything should be done.
                 if self.actors_num <= 0 then
@@ -217,7 +219,7 @@ Scheduler.run = function (self)
     -- the schedular coroutine should have its creator and the
     -- error should be processed.
     self.threads['_'] = thread
-    
+
     self:resume_actor('_', self)
 
     -- run until there are no actors
@@ -237,16 +239,18 @@ Actor.__init__ = function (self, sch, name)
     self.sch = sch -- scheduler
 end
 
-Actor.send = function (self, msg)
-    msg.from = self.my_name
-    self.sch.push_msg(self.sch, msg) -- return the session
+Actor.send = function (self, to, cmd, msg)
+    local from = self.my_name
+    self.sch.push_msg(self.sch, from, to, cmd, msg)
 end
 
 Actor.listen = function (self, what)
     -- what is the set of the msg you want listen
-    msg = coroutine.yield(what)
-    if msg.cmd ~= nil and type(what[msg.cmd]) == 'function' then
-        what[msg.cmd](msg)
+    local from, cmd, msg = coroutine.yield(what)
+    if cmd ~= nil 
+       and what[cmd] ~= nil -- XXX:how to make sure what[cmd] is function like?
+    then
+        what[cmd](msg, from)
     else
         error("unknown message command type")
     end

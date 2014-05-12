@@ -24,14 +24,16 @@ EchoActor.callback = function(self, conn)
     print(string.format('EchoActor[%s] start...', self.my_name))
 
     -- register fd event for new data coming
-    self:send({
-        to = 'sch',                 -- to
-        cmd = 'register',           -- register command
-        event = 'fd',               -- event type
-        ev_name = self.my_name,     -- event name
-        fd = self.conn,             -- fd want to listen
-        fd_event = "read",          -- fd event type
-    })
+    self:send(
+        'sch',                  -- to
+        'register',             -- register command
+        {
+            event = 'fd',               -- event type
+            ev_name = self.my_name,     -- event name
+            fd = self.conn,             -- fd want to listen
+            fd_event = "read",          -- fd event type
+        }
+    )
 
     local finish = false
     while not finish do
@@ -45,24 +47,18 @@ EchoActor.callback = function(self, conn)
                     -- echo back
                     self.conn:send(line .. "\n")
 
-                    -- if got a 'exit' command, send exit message 
+                    -- if got a 'exit' command, send exit message
                     -- to tcp_manager. later, we will receive a
                     -- exit event.
                     if line == "exit" then
-                        self:send({
-                            to = 'tcp_manager', 
-                            cmd = 'exit'
-                        })
+                        self:send('tcp_manager', 'exit')
                     elseif line == "raise" then
                         error("raise error")
                     end
                 else
                     -- connection close
                     -- send a message to delete my info
-                    self:send({
-                        to = 'tcp_manager',
-                        cmd = 'echo_actor_finished'
-                    })
+                    self:send('tcp_manager', 'echo_actor_finished')
                     finish = true
                 end
             end,
@@ -100,14 +96,14 @@ TcpManager.callback = function (self)
     self.server = assert(socket.bind("*", 48888))
 
     -- register fd event for accept new connection
-    self:send({
-        to = 'sch',                 -- to
-        cmd = 'register',           -- register command
-        event = 'fd',               -- event type
-        ev_name = self.my_name,     -- event name
-        fd = self.server,           -- fd want to listen
-        fd_event = "read",          -- fd event type
-    })
+    self:send('sch', 'register',
+        {
+            event = 'fd',               -- event type
+            ev_name = self.my_name,     -- event name
+            fd = self.server,           -- fd want to listen
+            fd_event = "read",          -- fd event type
+        }
+    )
 
     local finish = false
     while not finish do
@@ -122,23 +118,23 @@ TcpManager.callback = function (self)
                 conn_no = conn_no + 1
 
                 -- create a new EchoActor by send a message to scheduler
-                self:send({
-                    to = 'sch',                 -- to
-                    cmd = 'create',             -- register command
-                    name = conn_name,           -- new actor's name
-                    actor = EchoActor,          -- actor class
-                    args = {conn,},             -- arguments
-                })
+                self:send('sch', 'create',
+                    {
+                        name = conn_name,           -- new actor's name
+                        actor = EchoActor,          -- actor class
+                        args = {conn,},             -- arguments
+                    }
+                )
 
                 -- attach the name of echo actor to the pool
                 self.active_echo_actors[conn_name] = true
             end,
 
             -- wait finish message from echo actors
-            echo_actor_finished = function (msg)
-                self.active_echo_actors[msg.from] = nil
+            echo_actor_finished = function (msg, from)
+                self.active_echo_actors[from] = nil
             end,
-            
+
             -- handle the error of echo actor
             -- close the connection and unregister the related events.
             actor_error = function (msg)
@@ -156,14 +152,11 @@ TcpManager.callback = function (self)
             end,
 
             -- wait an exit message sent from echo actor
-            exit = function (msg)
-                print('Got Exit Message from '..msg.from)
+            exit = function (msg, from)
+                print('Got Exit Message from '..from)
                 print('Send `exit` to all echo actors')
                 for echo_actor_name, _ in pairs(self.active_echo_actors) do
-                    self:send({
-                        to = echo_actor_name,
-                        cmd = 'exit'
-                    })
+                    self:send(echo_actor_name, 'exit')
                 end
                 finish = true
             end,
@@ -190,11 +183,11 @@ print('The reactor you use is *'..reactor..'*.')
 
 sch = Scheduler(reactor)
 -- create a new TcpManager by send a message to scheduler
-sch:push_msg({
-    to = 'sch',                 -- to
-    cmd = 'create',             -- register command
-    name = "tcp_manager",       -- new actor's name
-    actor = TcpManager,         -- actor class
-    args = nil,                 -- arguments
-})
+sch:push_msg('sch', 'sch', 'create', 
+    {    
+        name = "tcp_manager",       -- new actor's name
+        actor = TcpManager,         -- actor class
+        args = nil,                 -- arguments
+    }
+)
 sch:run()
