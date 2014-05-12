@@ -19,25 +19,25 @@ sch = Scheduler(reactor)
 
 Timeout = util.class(Actor)
 
-Timeout.callback = function (self, msg)
+Timeout.callback = function (self)
     print ('Timer Actor start...')
     print ('Register 1s timeout.')
     -- register timeout event
-    self:send({
-        to = 'sch',                 -- to
-        cmd = 'register',           -- register command
-        event = 'timeout',          -- event type
-        ev_name = self.my_name,     -- event name
-        timeout = 1                 -- timeout: 1s
-    })
+    self:send('sch', 'register', 
+        {
+            event = 'timeout',          -- event type
+            ev_name = self.my_name,     -- event name
+            timeout = 1                 -- timeout: 1s
+        }
+    )
 
     print ('Wait 1s')
     self:listen({
-        timeout = function (msg)
+        timeout = function (msg, from)
             print(
                 string.format(
-                    'Got message:%s', 
-                    msg.cmd
+                    'Got message from:%s', 
+                    from
                 )
             )
         end,
@@ -45,11 +45,11 @@ Timeout.callback = function (self, msg)
     print ('Time Actor end...')
 end
 
-sch:push_msg({
-    to = 'sch',                 -- to
-    cmd = 'create',             -- register command
-    name = "timeout",           -- new actor's name
-    actor = Timeout,            -- actor class
-    args = nil,                 -- arguments
-})
+sch:push_msg('sch', 'sch', 'create', 
+    {
+        name = "timeout",           -- new actor's name
+        actor = Timeout,            -- actor class
+        args = nil,                 -- arguments
+    }
+)
 sch:run()

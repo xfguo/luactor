@@ -18,24 +18,13 @@ print('The reactor you use is *'..reactor..'*.')
 sch = Scheduler(reactor)
 
 Ping = util.class(Actor)
-Ping.callback = function (self, msg)
+Ping.callback = function (self)
     print("ping start")
     for _ = 1,100 do
         self:listen({
-            bar = function (msg)
-                print(
-                    string.format(
-                        'msg from:%s cmd:%s msg:%s', 
-                        msg.from,
-                        msg.cmd,
-                        msg.msg
-                    )
-                )
-                self:send({
-                    to = "pong",
-                    cmd = "foo",
-                    msg = "hello",
-                })
+            bar = function (msg, from)
+                print(string.format('msg from:%s msg:%s', from, msg))
+                self:send("pong", "foo", "hello")
             end,
         })
     end
@@ -47,48 +36,32 @@ Pong.callback = function (self, msg)
     print("pong start")
     for _ = 1,100 do
         self:listen({
-            foo = function (msg)
-                print(
-                    string.format(
-                        'msg from:%s cmd:%s msg:%s', 
-                        msg.from,
-                        msg.cmd,
-                        msg.msg
-                    )
-                )
-                self:send({
-                    to = "ping",
-                    cmd = "bar",
-                    msg = "world",
-                })
+            foo = function (msg, from)
+                print(string.format('msg from:%s msg:%s', from, msg))
+                self:send("ping", "bar", "world")
             end,
         })
     end
 end
 
 -- create Ping and Pong actors by send messages to scheduler
-sch:push_msg({
-    to = 'sch',                 -- to
-    cmd = 'create',             -- register command
-    name = "ping",              -- new actor's name
-    actor = Ping,               -- actor class
-    args = nil,                 -- arguments
-})
+sch:push_msg('sch', 'sch', 'create', 
+    {
+        name = "ping",              -- new actor's name
+        actor = Ping,               -- actor class
+        args = nil,                 -- arguments
+    }
+)
 
-sch:push_msg({
-    to = 'sch',                 -- to
-    cmd = 'create',             -- register command
-    name = "pong",              -- new actor's name
-    actor = Pong,               -- actor class
-    args = nil,                 -- arguments
-})
+sch:push_msg('sch', 'sch', 'create',
+    {
+        name = "pong",              -- new actor's name
+        actor = Pong,               -- actor class
+        args = nil,                 -- arguments
+    }
+)
 
 
 -- send a fake pong msg to ping to start the ping-pong
-sch:push_msg({
-    from = 'pong',
-    to = 'ping',
-    cmd = "bar",
-    msg = "world",
-})
+sch:push_msg('pong', 'ping', "bar", "world")
 sch:run()
