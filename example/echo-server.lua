@@ -5,8 +5,7 @@
 --     http://w3.impa.br/~diego/software/luasocket/introduction.html
 --
 
-require "actor"
-util = require "util"
+local actor = require "luactor"
 local socket = require("socket")
 
 -- Actors ---------------------------------------------------------------------
@@ -16,49 +15,41 @@ local socket = require("socket")
 --
 -- handle a TCP connection, echo back everything
 --
-EchoActor = util.class(Actor)
-
-EchoActor.callback = function(self, conn)
-    self.conn = conn
-
-    print(string.format('EchoActor[%s] start...', self.my_name))
+local echo_actor_func = function(conn, name)
+    print(string.format('EchoActor[%s] start...', name))
 
     -- register fd event for new data coming
-    self:send(
-        'sch',                  -- to
-        'register',             -- register command
-        {
-            event = 'fd',               -- event type
-            ev_name = self.my_name,     -- event name
-            fd = self.conn,             -- fd want to listen
-            fd_event = "read",          -- fd event type
-        }
+    actor.register_event(
+        'fd',                       -- event type
+        name,                       -- event name
+        conn,                       -- fd want to listen
+        'read'                      -- fd event type
     )
 
     local finish = false
     while not finish do
         -- listen fd event
-        self:listen({
+        actor.wait({
             -- wait fd event
             fd_event = function (msg)
                 -- receive it
-                local line, err = self.conn:receive()
+                local line, err = conn:receive()
                 if not err then
                     -- echo back
-                    self.conn:send(line .. "\n")
+                    conn:send(line .. "\n")
 
                     -- if got a 'exit' command, send exit message
                     -- to tcp_manager. later, we will receive a
                     -- exit event.
                     if line == "exit" then
-                        self:send('tcp_manager', 'exit')
+                        actor.send('tcp_manager', 'exit')
                     elseif line == "raise" then
                         error("raise error")
                     end
                 else
                     -- connection close
                     -- send a message to delete my info
-                    self:send('tcp_manager', 'echo_actor_finished')
+                    actor.send('tcp_manager', 'echo_actor_finished')
                     finish = true
                 end
             end,
@@ -66,17 +57,16 @@ EchoActor.callback = function(self, conn)
             -- wait an exit message
             exit = function (msg)
                 finish = true
-                print(string.format('EchoActor[%s] got a exit command.', self.my_name))
+                print(string.format('EchoActor[%s] got a exit command.', name))
             end,
         })
     end
 
     -- unregister fd event, close and exit
-    -- TODO: unregister event by send a message
-    self.sch:unregister_event(self.my_name)
-    self.conn:close()
+    actor.unregister_event(name)
+    conn:close()
 
-    print(string.format('EchoActor[%s] end...', self.my_name))
+    print(string.format('EchoActor[%s] end...', name))
 end
 
 --
@@ -84,87 +74,86 @@ end
 --
 -- listen a TCP socket, when new TCP connection established, pass it to a new EchoActor
 --
-TcpManager = util.class(Actor)
-
-TcpManager.callback = function (self)
-    self.active_echo_actors = {}
+tcp_manager_func = function ()
+    local active_echo_actors = {}
+    local accepted_conns = {}
     local conn_no = 0
 
     print('TcpManager start...')
     print("Use `telnet localhost 48888` to test it")
 
-    self.server = assert(socket.bind("*", 48888))
+    local server = assert(socket.bind("*", 48888))
 
     -- register fd event for accept new connection
-    self:send('sch', 'register',
-        {
-            event = 'fd',               -- event type
-            ev_name = self.my_name,     -- event name
-            fd = self.server,           -- fd want to listen
-            fd_event = "read",          -- fd event type
-        }
+    actor.register_event(
+        'fd',               -- event type
+        'tcp_manager',      -- event name
+        server,             -- fd want to listen
+        'read'              -- fd event type
     )
 
     local finish = false
     while not finish do
         -- listen fd event
-        self:listen({
+        actor.wait({
             -- wait a fd event
             fd_event = function (msg)
-                local conn = self.server:accept()
+                local conn = server:accept()
 
                 -- generate a new name
                 local conn_name = 'tcp_conn_'..conn_no
                 conn_no = conn_no + 1
 
                 -- create a new EchoActor by send a message to scheduler
-                self:send('sch', 'create',
-                    {
-                        name = conn_name,           -- new actor's name
-                        actor = EchoActor,          -- actor class
-                        args = {conn,},             -- arguments
-                    }
+                local new_echo_actor = actor.create(
+                    conn_name,           -- new actor's name
+                    echo_actor_func      -- actor function
                 )
 
+                -- start the new echo actor
+                actor.start(new_echo_actor, conn, conn_name)
+
                 -- attach the name of echo actor to the pool
-                self.active_echo_actors[conn_name] = true
+                active_echo_actors[conn_name] = true
+
+                -- hold the accepted connections for error handling
+                accepted_conns[conn_name] = conn
             end,
 
             -- wait finish message from echo actors
-            echo_actor_finished = function (msg, from)
-                self.active_echo_actors[from] = nil
+            echo_actor_finished = function (msg, sender)
+                active_echo_actors[sender] = nil
+                accepted_conns[sender] = nil
             end,
 
             -- handle the error of echo actor
             -- close the connection and unregister the related events.
             actor_error = function (msg)
-                local failed_echo_actor = msg.actor
-
-                failed_echo_actor.conn:close()
-                -- TODO: unregister event by send a message
-                self.sch:unregister_event(failed_echo_actor.my_name)
+                local failed_echo_actor_name = msg.actor.name
+                actor.unregister_event(failed_echo_actor_name)
+                accepted_conns[failed_echo_actor_name]:close()
                 print(string.format(
                     'Echo actor: [%s] failed: \ntrace:\n\t%s\nerror: %s',
-                    failed_echo_actor.my_name,
+                    failed_echo_actor_name,
                     string.gsub(msg.error[1], '\n', '\n\t'),
                     msg.error[2]
                 ))
             end,
 
             -- wait an exit message sent from echo actor
-            exit = function (msg, from)
-                print('Got Exit Message from '..from)
+            exit = function (msg, sender)
+                print('Got Exit Message from '..sender)
                 print('Send `exit` to all echo actors')
-                for echo_actor_name, _ in pairs(self.active_echo_actors) do
-                    self:send(echo_actor_name, 'exit')
+                for echo_actor_name, _ in pairs(active_echo_actors) do
+                    actor.send(echo_actor_name, 'exit')
                 end
                 finish = true
             end,
         })
     end
 
-    self.sch:unregister_event(self.my_name)
-    self.server:close()
+    actor.unregister_event('tcp_manager')
+    server:close()
     print('TcpManager end...')
 end
 -- Main -----------------------------------------------------------------------
@@ -181,13 +170,8 @@ if arg[1] ~= nil then
 end
 print('The reactor you use is *'..reactor..'*.')
 
-sch = Scheduler(reactor)
--- create a new TcpManager by send a message to scheduler
-sch:push_msg('sch', 'sch', 'create', 
-    {    
-        name = "tcp_manager",       -- new actor's name
-        actor = TcpManager,         -- actor class
-        args = nil,                 -- arguments
-    }
-)
-sch:run()
+tcp_manager = actor.create('tcp_manager', tcp_manager_func)
+
+actor.start(tcp_manager)
+
+actor.run()

@@ -1,4 +1,4 @@
-require "actor"
+local actor = require "luactor"
 
 -- Setup reactor---------------------------------------------------------------
 local reactor = 'luaevent'
@@ -15,24 +15,18 @@ end
 
 print('The reactor you use is *'..reactor..'*.')
 
-sch = Scheduler(reactor)
-
-Timeout = util.class(Actor)
-
-Timeout.callback = function (self)
+local timeout = function ()
     print ('Timer Actor start...')
     print ('Register 1s timeout.')
     -- register timeout event
-    self:send('sch', 'register', 
-        {
-            event = 'timeout',          -- event type
-            ev_name = self.my_name,     -- event name
-            timeout = 1                 -- timeout: 1s
-        }
+    actor.register_event(
+        'timeout',      -- event type
+        't1',           -- event name
+        1               -- event parameters
     )
 
     print ('Wait 1s')
-    self:listen({
+    actor.wait({
         timeout = function (msg, from)
             print(
                 string.format(
@@ -45,11 +39,8 @@ Timeout.callback = function (self)
     print ('Time Actor end...')
 end
 
-sch:push_msg('sch', 'sch', 'create', 
-    {
-        name = "timeout",           -- new actor's name
-        actor = Timeout,            -- actor class
-        args = nil,                 -- arguments
-    }
-)
-sch:run()
+timer = actor.create('timeout', timeout)
+
+actor.start(timer)
+
+actor.run()
