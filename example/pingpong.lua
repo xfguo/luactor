@@ -1,6 +1,5 @@
-require "actor"
+local actor = require "luactor"
 
--- Example -------------------------------------------------------------------
 local reactor = 'luaevent'
 if arg[1] ~= nil then
     if arg[1] == 'uloop' then
@@ -13,55 +12,40 @@ if arg[1] ~= nil then
     end
 end
 
+-- Example -------------------------------------------------------------------
+
 print('The reactor you use is *'..reactor..'*.')
 
-sch = Scheduler(reactor)
-
-Ping = util.class(Actor)
-Ping.callback = function (self)
+local ping = function ()
     print("ping start")
     for _ = 1,100 do
-        self:listen({
-            bar = function (msg, from)
-                print(string.format('msg from:%s msg:%s', from, msg))
-                self:send("pong", "foo", "hello")
+        actor.wait({
+            bar = function (msg, sender)
+                print(string.format('msg from:%s msg:%s', sender, msg))
+                actor.send("pong", "foo", "hello")
             end,
         })
     end
 end
 
-Pong = util.class(Actor)
-
-Pong.callback = function (self, msg)
+local pong = function ()
     print("pong start")
     for _ = 1,100 do
-        self:listen({
-            foo = function (msg, from)
-                print(string.format('msg from:%s msg:%s', from, msg))
-                self:send("ping", "bar", "world")
+        actor.wait({
+            foo = function (msg, sender)
+                print(string.format('msg from:%s msg:%s', sender, msg))
+                actor.send("ping", "bar", "world")
             end,
         })
     end
 end
 
--- create Ping and Pong actors by send messages to scheduler
-sch:push_msg('sch', 'sch', 'create', 
-    {
-        name = "ping",              -- new actor's name
-        actor = Ping,               -- actor class
-        args = nil,                 -- arguments
-    }
-)
+pinger = actor.create('ping', ping)
+ponger = actor.create('pong', pong)
 
-sch:push_msg('sch', 'sch', 'create',
-    {
-        name = "pong",              -- new actor's name
-        actor = Pong,               -- actor class
-        args = nil,                 -- arguments
-    }
-)
+actor.start(pinger)
+actor.start(ponger)
 
+actor.send('ping', 'bar', 'world')
 
--- send a fake pong msg to ping to start the ping-pong
-sch:push_msg('pong', 'ping', "bar", "world")
-sch:run()
+actor.run()

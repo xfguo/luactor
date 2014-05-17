@@ -121,28 +121,4 @@ Queue.empty = function (self)
     return self.first > self.last and true or false
 end
 
--------------------------------------------------------------------------------
--- Coroutine safe xpcall and pcall versions modified for luactor
---
--- Encapsulates the protected calls with a coroutine based loop, so errors can
--- be dealed without the usual Lua 5.x pcall/xpcall issues with coroutines
--- yielding inside the call to pcall or xpcall.
---
--- Authors: Roberto Ierusalimschy and Andre Carregal
--- Contributors: Thomas Harning Jr., Ignacio Burgueño, Fabio Mascarenhas
---
--- Copyright 2005 - Kepler Project (www.keplerproject.org)
--------------------------------------------------------------------------------
 
-pack = table.pack or function(...) return {n = select("#", ...), ...} end
-
-local handle_return_value = function (err, co, status, ...)
-    if not status then
-        return false, err(debug.traceback(co, (...)), ...)
-    end
-    return true, ...
-end
-
-perform_resume = function (err, co, ...)
-    return handle_return_value(err, co, coroutine.resume(co, ...))
-end

@@ -2,8 +2,8 @@ language: c
 
 env:
   matrix:
-    - "LUA=lua5.1 REACTOR=luaevent"
-    - "LUA=lua5.1 REACTOR=uloop"
+    - "LUA=lua5.1 LUACTOR_REACTOR=luaevent"
+    - "LUA=lua5.1 LUACTOR_REACTOR=uloop"
 
 install:
   - "source tests/setup.sh"
