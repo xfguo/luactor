@@ -1,4 +1,6 @@
-local util = require "util"
+-- 
+-- Luactor - A pure Lua "Actor Model" framework
+--
 
 --============================================================================
 -- An actor need a reactor for event trigger.
@@ -13,12 +15,12 @@ else
     reactor = require "reactor.luaevent"
 end
 --============================================================================
--- internal objects
-local __reactor = reactor()   -- reactor object
-local __mqueue = util.Queue() -- message queue
-local __actors = {}           -- actor object pool
-local __actors_num = 0        -- number of actors
-local __lut_thread_actor = {} -- thread to actor look-up table
+-- declare internal objects
+local __reactor             -- reactor object
+local __mqueue              -- message queue
+local __actors              -- actor object pool
+local __actors_num          -- number of actors
+local __lut_thread_actor    -- thread to actor look-up table
 
 --============================================================================
 -- helper methods for luactor
@@ -61,6 +63,33 @@ local safe_coroutine_create = function(f)
     return thread
 end
 
+--------------------------------------------------------------------------------
+-- Simple Queue
+
+queue = {}
+
+queue.new = function()
+    return {first = 0, last = -1}
+end
+
+queue.push = function (q, value)
+    local first = q.first - 1
+    q.first = first
+    q[first] = value
+end
+    
+queue.pop = function (q)
+    local last = q.last
+    if q.first > last then error("queue is empty") end
+    local value = q[last]
+    q[last] = nil         -- to allow garbage collection
+    q.last = last - 1
+    return value
+end
+
+queue.empty = function (q)
+    return q.first > q.last and true or false
+end
 
 -------------------------------------------------------------------------------
 -- get running actor's object
@@ -84,7 +113,7 @@ local resume_actor = function (actor, ...)
     -- send the failed actor to its creator. if it creator is
     -- dead, then just destory it.
     if status == false and actor.creator ~= nil then
-        __mqueue:push({
+        queue.push(__mqueue, {
             '_',                   -- sender
             actor.creator,         -- receiver
             "actor_error",         -- command
@@ -109,7 +138,7 @@ end
 -- event register handlers
 local event_handlers = {
     timeout = function(sender, receiver, ev_name, timeout_interval)
-        __reactor:register_timeout_cb(
+        __reactor.register_timeout_cb(
             ev_name,
             function (events)
                 -- unregister the event if the actor was dead.
@@ -117,10 +146,10 @@ local event_handlers = {
                 --  XXX: what if the name is reused?
                 --       or any other problems?
                 if __actors[receiver] == nil then
-                    __reactor:unregister_event(ev_name)
+                    __reactor.unregister_event(ev_name)
                 end
                 -- push event message to __mqueue
-                __mqueue:push({sender, receiver, "timeout",
+                queue.push(__mqueue, {sender, receiver, "timeout",
                     {
                         timeout_interval = timeout_interval,
                     }
@@ -130,16 +159,7 @@ local event_handlers = {
         )
     end,
     fd = function(sender, receiver, ev_name, fd, event)
-        local fd_event
-        if event == 'read' then
-            fd_event = __reactor.FD_READ
-        elseif event == 'write' then
-            fd_event = __reactor.FD_WRITE
-        else
-            error("unknown fd event type")
-        end
-
-        __reactor:register_fd_event(
+        __reactor.register_fd_event(
             ev_name,
             function (events)
 
@@ -148,10 +168,10 @@ local event_handlers = {
                 --  XXX: what if the name is reused?
                 --       or any other problems?
                 if __actors[receiver] == nil then
-                    __reactor:unregister_event(ev_name)
+                    __reactor.unregister_event(ev_name)
                 end
                 -- push event message to __mqueue
-                __mqueue:push({sender, receiver, "fd_event",
+                queue.push(__mqueue, {sender, receiver, "fd_event",
                     {
                         event = event,
                         fd = fd,
@@ -159,7 +179,7 @@ local event_handlers = {
                 })
                 resume_actor('_')
             end,
-            fd, fd_event
+            fd, event
         )
     end,
 }
@@ -172,8 +192,8 @@ local process_mqueue = function ()
     local finish = false
     while not finish do
         -- process the message in the queue one by one until empty.
-        while not __mqueue:empty() do
-            local sender, receiver, command, message = unpack(__mqueue:pop())
+        while not queue.empty(__mqueue) do
+            local sender, receiver, command, message = unpack(queue.pop(__mqueue))
             if __actors[receiver] == nil then
                 -- drop this message
                 -- TODO: what we can do before the message is dropped.
@@ -182,7 +202,7 @@ local process_mqueue = function ()
 
                 -- if there is no running actor, everything should be done.
                 if __actors_num <= 0 then
-                    __reactor:cancel()
+                    __reactor.cancel()
                     finish = true
                     break
                 end
@@ -199,6 +219,14 @@ end
 -- like *coroutine*, all *luactor* method are contained within a table.
 
 local actor = {}
+
+------------------------------------------------------------------------------
+-- initialize internal objects
+__reactor = reactor       -- reactor object
+__mqueue = queue.new()    -- message queue
+__actors = {}             -- actor object pool
+__actors_num = 0          -- number of actors
+__lut_thread_actor = {}   -- thread to actor look-up table
 
 ------------------------------------------------------------------------------
 -- create an actor
@@ -235,7 +263,7 @@ actor.send = function (receiver, command, message)
     -- didn't check receiver's name because it might be create later.
 
     -- push message to global message queue
-    __mqueue:push({
+    queue.push(__mqueue, {
         me and me.name or "_",  -- sender
         receiver,               -- receiver
         command,                -- command
@@ -278,7 +306,7 @@ end
 ------------------------------------------------------------------------------
 -- unregister an event
 actor.unregister_event = function (ev_name)
-    __reactor:unregister_event(ev_name)
+    __reactor.unregister_event(ev_name)
 end
 
 ------------------------------------------------------------------------------
@@ -307,7 +335,7 @@ actor.run = function ()
 
     -- run until there are no __actors
     while __actors_num > 0 do
-        __reactor:run()
+        __reactor.run()
     end
 
     -- TODO: clean up everything

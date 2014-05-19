@@ -1,27 +1,25 @@
-local util = require("util")
-local AbstractReactor = require("reactor")
+--
+-- the luaevent reactor driver
+--
+
+-- we just use the luaevent.core but not its high-level i/f.
 local luaevent = require "luaevent"
 local core = luaevent.core
 
-local LuaeventReactor = util.class(AbstractReactor)
+local luaevent_reactor = {}
 
---
--- FIXME: the return value of a callback may delete that event
---
+-- event core
+local __ev_base = core.new()
 
-LuaeventReactor.__init__ = function (self)
-    AbstractReactor.__init__(self)
-    self.__ev_base = core.new()
-    self.__events = {}
-end
+-- registered events pool
+local __events = {}
 
-LuaeventReactor.__register_event = function (self, name, event_cb, fd, event, timeout)
-    if self.__events[name] ~= nil then
+local __register_event = function (name, event_cb, fd, event, timeout)
+    if __events[name] ~= nil then
         error("event has been registered")
     end
 
-
-    self.__events[name] = self.__ev_base:addevent(fd, event, 
+    __events[name] = __ev_base:addevent(fd, event, 
         function ()
             event_cb()
 
@@ -31,41 +29,41 @@ LuaeventReactor.__register_event = function (self, name, event_cb, fd, event, ti
     timeout)
 end
 
-LuaeventReactor.register_fd_event = function (self, name, fd_event_cb, fd, event)
+luaevent_reactor.register_fd_event = function (name, fd_event_cb, fd, event)
     local events = 0
     -- transform event type
-    if event == self.FD_READ then
+    if event == 'read' then
         events = events + core.EV_READ
-    elseif event == self.FD_WRITE then
+    elseif event == 'write' then
         events = events + core.EV_WRITE
     else
         error("unsupport event or nothing to do")
     end
 
-    self:__register_event(name, fd_event_cb, fd, events)
+    __register_event(name, fd_event_cb, fd, events)
 end
 
-LuaeventReactor.unregister_event = function (self, name)
+luaevent_reactor.unregister_event = function (name)
     local fd_ev
 
-    if self.__events[name] == nil then
+    if __events[name] == nil then
         error("try to unregister unknown event")
     end
 
-    self.__events[name]:close()
-    self.__events[name] = nil
+    __events[name]:close()
+    __events[name] = nil
 end
 
-LuaeventReactor.register_timeout_cb = function (self, name, timeout_cb, timeout_interval)
-    self:__register_event(name, timeout_cb, nil, core.EV_TIMEOUT, timeout_interval)
+luaevent_reactor.register_timeout_cb = function (name, timeout_cb, timeout_interval)
+    __register_event(name, timeout_cb, nil, core.EV_TIMEOUT, timeout_interval)
 end
 
-LuaeventReactor.run = function (self)
-    self.__ev_base:loop()
+luaevent_reactor.run = function ()
+    __ev_base:loop()
 end
 
-LuaeventReactor.cancel = function (self)
+luaevent_reactor.cancel = function ()
     -- TODO: impl this method
 end
 
-return LuaeventReactor
+return luaevent_reactor
