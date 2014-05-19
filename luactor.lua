@@ -61,6 +61,9 @@ local safe_coroutine_create = function(f)
     return thread
 end
 
+
+-------------------------------------------------------------------------------
+-- get running actor's object
 local get_myself = function ()
     local myself_thread = coroutine.running()
     local me = __lut_thread_actor[myself_thread]
@@ -68,6 +71,8 @@ local get_myself = function ()
     return me
 end
 
+-------------------------------------------------------------------------------
+-- resume an actor and handle its error.
 local resume_actor = function (actor, ...)
     local actor = actor
     if type(actor) == 'string' then
@@ -75,7 +80,7 @@ local resume_actor = function (actor, ...)
     end
 
     local me = get_myself()
-    local status, what = perform_resume(pack, actor.thread, ...)
+    local status, err = perform_resume(pack, actor.thread, ...)
     -- send the failed actor to its creator. if it creator is
     -- dead, then just destory it.
     if status == false and actor.creator ~= nil then
@@ -85,7 +90,7 @@ local resume_actor = function (actor, ...)
             "actor_error",         -- command
             {
                 actor = actor,
-                error = what,
+                error = err,
             }                      -- error message
         })
     end
@@ -100,6 +105,8 @@ local resume_actor = function (actor, ...)
     end
 end
 
+------------------------------------------------------------------------------
+-- event register handlers
 local event_handlers = {
     timeout = function(sender, receiver, ev_name, timeout_interval)
         __reactor:register_timeout_cb(
@@ -157,6 +164,10 @@ local event_handlers = {
     end,
 }
 
+------------------------------------------------------------------------------
+-- schedular coroutine
+-- 
+-- process the message queue until it's empty, then yield out.
 local process_mqueue = function ()
     local finish = false
     while not finish do
@@ -189,6 +200,8 @@ end
 
 local actor = {}
 
+------------------------------------------------------------------------------
+-- create an actor
 actor.create = function (name, f, ...)
     if __actors[name] ~= nil then
         error("the actor name has been registered")
@@ -212,6 +225,9 @@ actor.create = function (name, f, ...)
     return new_actor
 end
 
+------------------------------------------------------------------------------
+-- send a message to another actor
+-- 
 -- XXX: should we yield out when receive a message?
 actor.send = function (receiver, command, message)
     local me = get_myself()
@@ -220,28 +236,33 @@ actor.send = function (receiver, command, message)
 
     -- push message to global message queue
     __mqueue:push({
-        me and me.name or "_",     -- sender
-        receiver,           -- receiver
+        me and me.name or "_",  -- sender
+        receiver,               -- receiver
         command,                -- command
         message,                -- message
     })
 
 end
 
-actor.wait = function (handers)
-    -- handers is the set of the message you want listen
+------------------------------------------------------------------------------
+-- wait a message
+actor.wait = function (handlers)
+    -- handlers is the set of the message you want listen
     local sender, command, message = coroutine.yield()
     if command ~= nil
-       and handers[command] ~= nil -- XXX:how to make sure what[command] is function like?
+       and handlers[command] ~= nil
+       -- XXX:how to make sure handlers[command] is function like?
     then
-        handers[command](message, sender)
+        handlers[command](message, sender)
     else
         -- XXX: should we raise an error here? or, we can return a
-        --      command `__unknown` or `__index`?
+        --      command `__unknown` or `__index` as a *meta method*.
         error("unknown message command type")
     end
 end
 
+------------------------------------------------------------------------------
+-- register an event
 actor.register_event = function (ev_type, ev_name, ...)
     local me = get_myself()
     local event_handler = event_handlers[ev_type]
@@ -254,14 +275,20 @@ actor.register_event = function (ev_type, ev_name, ...)
     end
 end
 
+------------------------------------------------------------------------------
+-- unregister an event
 actor.unregister_event = function (ev_name)
     __reactor:unregister_event(ev_name)
 end
 
+------------------------------------------------------------------------------
+-- start an actor
 actor.start = function (actor, ...)
     resume_actor(actor, ...)
 end
 
+------------------------------------------------------------------------------
+-- run schedular and event loop
 actor.run = function ()
     local thread = safe_coroutine_create(process_mqueue)
 

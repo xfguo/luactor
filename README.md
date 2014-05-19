@@ -5,6 +5,8 @@ LuActor - Actor Model for Lua
 
 A pure Lua (at least for now) [Actor Model](http://en.wikipedia.org/wiki/Actor_model) framework.
 
+**Luactor** is based on **coroutine** in Lua.
+
 Inspired by these projects and articles, thanks for all of them.
 
 - [@cloudwu](https://github.com/cloudwu)'s [skynet](https://github.com/cloudwu/skynet) and his [blog](http://blog.codingnow.com).
