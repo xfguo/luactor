@@ -41,7 +41,9 @@ For now, it support:
 - [libubox:uloop](https://github.com/xfguo/libubox)
   - NOTE: **uloop** is a part of libubox which is design for OpenWrt(a GLib like library). For now, it just test with the modified version of libubox. Since the lua binding of uloop is missing the fd operation part.
 
-`reactor.lua` is an abstract layer of the reactor library, so it is very easy to port to others. Like lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...
+`reactor/reactor_template.lua` is a template of the reactor library. If you are using other event-driven library(eg. lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...), you just need implement the methods in this file.
+
+**Any other patch and pull request of a reactor implementation is welcome.**
 
 How to Use
 ----------
