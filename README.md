@@ -13,10 +13,6 @@ Inspired by these projects and articles, thanks for all of them.
 - [gevent](http://www.gevent.org/)
 - [ratchet](https://github.com/icgood/ratchet)
 
-And,
-
-- A class implemention for Lua is come from [LuCI Project](http://luci.subsignal.org)
-
 License
 -------
 
@@ -43,7 +39,7 @@ For now, it support:
 
 `reactor/reactor_template.lua` is a template of the reactor library. If you are using other event-driven library(eg. lua-ev/uloop(OpenWrt)/..., or epoll/kqueue/...), you just need implement the methods in this file.
 
-**Any other patch and pull request of a reactor implementation is welcome.**
+**Any other patch or pull request of a reactor implementation is welcome.**
 
 How to Use
 ----------
