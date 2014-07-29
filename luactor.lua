@@ -9,10 +9,10 @@
 local reactor_env = os.getenv("LUACTOR_REACTOR")
 local reactor
 if reactor_env == 'uloop' then
-    reactor = require "reactor.uloop"
+    reactor = require "luactor.reactor.uloop"
 else
     -- for now, default reactor driver is luaevent
-    reactor = require "reactor.luaevent"
+    reactor = require "luactor.reactor.luaevent"
 end
 --============================================================================
 -- declare internal objects
@@ -66,7 +66,7 @@ end
 --------------------------------------------------------------------------------
 -- Simple Queue
 
-queue = {}
+local queue = {}
 
 queue.new = function()
     return {first = 0, last = -1}
