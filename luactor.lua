@@ -3,10 +3,20 @@
 --
 
 --============================================================================
+-- load configuration module
+local __config = require "luactor.config"
+--============================================================================
 -- An actor need a reactor for event trigger.
---
+
 -- get the choose of reactor from environment variable.
 local reactor_env = os.getenv("LUACTOR_REACTOR")
+
+-- get reactor choice from config module if no environment variable set.
+if reactor_env == nil then
+    reactor_env = __config.REACTOR
+end
+
+-- load rector library
 local reactor
 if reactor_env == 'uloop' then
     reactor = require "luactor.reactor.uloop"
