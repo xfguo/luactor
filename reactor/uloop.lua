@@ -44,8 +44,15 @@ uloop_reactor.unregister_event = function (name)
     if __events[name] == nil then
         error("try to unregister unknown event")
     end
-
-    __events[name]:cancel()
+    
+    -- for timer event, use cancel to unregister it
+    -- for fd event, use delete to unregister it
+    if self.__events[name].cancel ~= nil then
+        self.__events[name]:cancel()
+    else
+        self.__events[name]:delete()
+    end
+    
     __events[name] = nil
 end
 
