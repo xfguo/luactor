@@ -298,7 +298,7 @@ actor.register_event = function (ev_type, ev_name, ...)
     local event_handler = event_handlers[ev_type]
 
     if __actors_events[me.name][ev_name] ~= nil then
-        error('event name "'..ev_name'" has been registered!')
+        error('event name "'..ev_name..'" has been registered!')
     elseif event_handler ~= nil then
         -- XXX: any other possibilities for sender and receiver?
         __actors_events[me.name][ev_name] = event_handler('_', me.name, ev_name, ...)
