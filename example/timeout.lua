@@ -10,13 +10,13 @@ local timeout = function ()
     -- register timeout event
     actor.register_event(
         'timeout',      -- event type
-        't1',           -- event name
+        'to1',          -- event name
         1               -- event parameters
     )
 
     print ('Wait 1s')
     actor.wait({
-        timeout = function (msg, from)
+        to1 = function (msg, from)
             print(
                 string.format(
                     'Got message from:%s', 

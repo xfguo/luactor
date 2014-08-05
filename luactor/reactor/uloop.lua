@@ -8,17 +8,10 @@ local __events = {}
 
 uloop.init()
 
-local __check_event_name = function (name)
-    if __events[name] ~= nil then
-        error("event has been registered")
-    end
-end
-
-uloop_reactor.register_fd_event = function (name, fd_event_cb, fd, event)
+uloop_reactor.register_fd_event = function (fd_event_cb, fd, event)
     local events = 0
 
-    __check_event_name(name)
-
+    -- TODO: support regiser both *read* and *write*.
     if event == 'read' then
         events = events + uloop.ULOOP_READ
     elseif event == 'write' then
@@ -27,33 +20,32 @@ uloop_reactor.register_fd_event = function (name, fd_event_cb, fd, event)
         error("unsupport event or nothing to do")
     end
 
-    __events[name] = uloop.fd_add(fd, fd_event_cb, events)
+    __events[uloop.fd_add(fd, fd_event_cb, events)] = true
 end
 
-uloop_reactor.register_timeout_cb = function (name, timeout_cb, timeout_interval)
+uloop_reactor.register_timeout_cb = function (timeout_cb, timeout_interval)
     local ti
-    __check_event_name(name)
 
     -- the time unit of uloop is ms, so convert it to second.
     ti = math.floor(timeout_interval * 1000)
   
-    __events[name] = uloop.timer(timeout_cb, ti)
+    __events[uloop.timer(timeout_cb, ti)] = true
 end
 
-uloop_reactor.unregister_event = function (name)
-    if __events[name] == nil then
+uloop_reactor.unregister_event = function (ev_obj)
+    if __events[ev_obj] ~= true then
         error("try to unregister unknown event")
     end
     
+    __events[ev_obj] = nil
+    
     -- for timer event, use cancel to unregister it
     -- for fd event, use delete to unregister it
-    if __events[name].cancel ~= nil then
-        __events[name]:cancel()
+    if ev_obj.cancel ~= nil then
+        ev_obj:cancel()
     else
-        __events[name]:delete()
+        ev_obj:delete()
     end
-    
-    __events[name] = nil
 end
 
 uloop_reactor.run = function ()

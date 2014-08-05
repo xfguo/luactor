@@ -18,23 +18,25 @@ local your_reactor = {}
 --
 -- method to register a fd event
 --
--- add name argument for easy debuging
+-- return the event object which is used to unregister
 --
-your_reactor.register_fd_event = function (name, fd_event_cb, fd, event)
-    error('Method not implemented.')
-end
-
---
--- method to unregister a timeout or fd event
---
-your_reactor.unregister_event = function (name)
+your_reactor.register_fd_event = function (fd_event_cb, fd, event)
     error('Method not implemented.')
 end
 
 --
 -- method to register a timeout event
 --
-your_reactor.register_timeout_cb = function (name, timeout_cb, timeout_interval)
+-- return the event object which is used to unregister
+--
+your_reactor.register_timeout_cb = function (timeout_cb, timeout_interval)
+    error('Method not implemented.')
+end
+
+--
+-- method to unregister a timeout or fd event
+--
+your_reactor.unregister_event = function (ev_obj)
     error('Method not implemented.')
 end
 

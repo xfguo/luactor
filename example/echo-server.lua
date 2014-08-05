@@ -21,7 +21,7 @@ local echo_actor_func = function(conn, name)
     -- register fd event for new data coming
     actor.register_event(
         'fd',                       -- event type
-        name,                       -- event name
+        'new_conn',                 -- event name
         conn,                       -- fd want to listen
         'read'                      -- fd event type
     )
@@ -31,7 +31,7 @@ local echo_actor_func = function(conn, name)
         -- listen fd event
         actor.wait({
             -- wait fd event
-            fd_event = function (msg)
+            new_conn = function (msg)
                 -- receive it
                 local line, err = conn:receive()
                 if not err then
@@ -63,7 +63,7 @@ local echo_actor_func = function(conn, name)
     end
 
     -- unregister fd event, close and exit
-    actor.unregister_event(name)
+    actor.unregister_event('new_conn')
     conn:close()
 
     print(string.format('EchoActor[%s] end...', name))
@@ -87,7 +87,7 @@ tcp_manager_func = function ()
     -- register fd event for accept new connection
     actor.register_event(
         'fd',               -- event type
-        'tcp_manager',      -- event name
+        'accept_conn',      -- event name
         server,             -- fd want to listen
         'read'              -- fd event type
     )
@@ -97,7 +97,7 @@ tcp_manager_func = function ()
         -- listen fd event
         actor.wait({
             -- wait a fd event
-            fd_event = function (msg)
+            accept_conn = function (msg)
                 local conn = server:accept()
 
                 -- generate a new name
@@ -130,7 +130,6 @@ tcp_manager_func = function ()
             -- close the connection and unregister the related events.
             actor_error = function (msg)
                 local failed_echo_actor_name = msg.actor.name
-                actor.unregister_event(failed_echo_actor_name)
                 accepted_conns[failed_echo_actor_name]:close()
                 print(string.format(
                     'Echo actor: [%s] failed: \ntrace:\n\t%s\nerror: %s',
@@ -152,7 +151,7 @@ tcp_manager_func = function ()
         })
     end
 
-    actor.unregister_event('tcp_manager')
+    actor.unregister_event('accept_conn')
     server:close()
     print('TcpManager end...')
 end
