@@ -31,6 +31,7 @@ local __mqueue              -- message queue
 local __actors              -- actor object pool
 local __actors_num          -- number of actors
 local __lut_thread_actor    -- thread to actor look-up table
+local __actors_events       -- registered events for each actor
 
 --============================================================================
 -- helper methods for luactor
@@ -141,6 +142,12 @@ local resume_actor = function (actor, ...)
         __actors[actor.name] = nil
         __actors_num = __actors_num - 1
         __lut_thread_actor[actor.thread] = nil
+
+        -- unregister all events that created by this actor
+        for _, ev_obj in pairs(__actors_events[actor.name]) do
+            __reactor.unregister_event(ev_obj)
+        end
+        __actors_events[actor.name] = nil
     end
 end
 
@@ -148,18 +155,10 @@ end
 -- event register handlers
 local event_handlers = {
     timeout = function(sender, receiver, ev_name, timeout_interval)
-        __reactor.register_timeout_cb(
-            ev_name,
+        return __reactor.register_timeout_cb(
             function (events)
-                -- unregister the event if the actor was dead.
-                --
-                --  XXX: what if the name is reused?
-                --       or any other problems?
-                if __actors[receiver] == nil then
-                    __reactor.unregister_event(ev_name)
-                end
                 -- push event message to __mqueue
-                queue.push(__mqueue, {sender, receiver, "timeout",
+                queue.push(__mqueue, {sender, receiver, ev_name,
                     {
                         timeout_interval = timeout_interval,
                     }
@@ -169,19 +168,10 @@ local event_handlers = {
         )
     end,
     fd = function(sender, receiver, ev_name, fd, event)
-        __reactor.register_fd_event(
-            ev_name,
+        return __reactor.register_fd_event(
             function (events)
-
-                -- unregister the event if the actor was dead.
-                --
-                --  XXX: what if the name is reused?
-                --       or any other problems?
-                if __actors[receiver] == nil then
-                    __reactor.unregister_event(ev_name)
-                end
                 -- push event message to __mqueue
-                queue.push(__mqueue, {sender, receiver, "fd_event",
+                queue.push(__mqueue, {sender, receiver, ev_name,
                     {
                         event = event,
                         fd = fd,
@@ -237,6 +227,7 @@ __mqueue = queue.new()    -- message queue
 __actors = {}             -- actor object pool
 __actors_num = 0          -- number of actors
 __lut_thread_actor = {}   -- thread to actor look-up table
+__actors_events = {}      -- registered events for each actor
 
 ------------------------------------------------------------------------------
 -- create an actor
@@ -258,6 +249,7 @@ actor.create = function (name, f, ...)
 
     -- save the actor to the global table
     __actors[name] = new_actor
+    __actors_events[name] = {}
     __lut_thread_actor[thread] = new_actor
 
     return new_actor
@@ -305,9 +297,11 @@ actor.register_event = function (ev_type, ev_name, ...)
     local me = get_myself()
     local event_handler = event_handlers[ev_type]
 
-    if event_handler ~= nil then
+    if __actors_events[me.name][ev_name] ~= nil then
+        error('event name "'..ev_name..'" has been registered!')
+    elseif event_handler ~= nil then
         -- XXX: any other possibilities for sender and receiver?
-        event_handler('_', me.name, ev_name, ...)
+        __actors_events[me.name][ev_name] = event_handler('_', me.name, ev_name, ...)
     else
         error('unknonw event type: '..ev_type)
     end
@@ -316,7 +310,12 @@ end
 ------------------------------------------------------------------------------
 -- unregister an event
 actor.unregister_event = function (ev_name)
-    __reactor.unregister_event(ev_name)
+    local me = get_myself()
+    if __actors_events[me.name][ev_name] == nil then
+        error("cannot find event "..ev_name..".")
+    end
+    __reactor.unregister_event(__actors_events[me.name][ev_name])
+    __actors_events[me.name][ev_name] = nil
 end
 
 ------------------------------------------------------------------------------

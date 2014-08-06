@@ -36,7 +36,7 @@ try:
             c[i].expect("telnet>")
             c[i].sendcontrol("D")
             c[i].expect(".*")
-        
+            time.sleep(1)
             prog_tested.expect("EchoActor.*end")
 
         prog_tested.expect(".*")

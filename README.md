@@ -111,6 +111,8 @@ Use `actor.wait` like:
 
 `actor.wait` accept a Lua table which the *key* is the command it want to receive and the *value* is a Lua function to process the message.
 
+
+
 ### Register and Unregister an Event
 
 An *actor* can register a fd/timeout event, so when that event is triggered. **luactor** will send a message to the *actor*. The `command` of the message is `fd` or `timeout`.
@@ -120,9 +122,10 @@ To register an event:
     actor.register(ev_type, ev_name, ...)
 
 - `ev_type` is the type of the event. For now, **luactor** support `fd` or `timeout`.
-- `ev_name` is the unique name of this event.
+- `ev_name` is the unique name of this event in the actor. if the event triggerd, *luactor* will send a message to the actor which the command is the *ev_name*.
 - `...` is the arguments of event register.
-  - For `fd` event, the it accept `fd` and `event` two arguments. `fd` is the file descriptor. `event` is the event type you want to trigger, can be `'read'` or `'write'`.
+  - For `fd` event, it accept `fd` and `event` two arguments. `fd` is the file descriptor. `event` is the event type you want to trigger, can be `'read'` or `'write'`.
+  - For `timeout` event, only one argument `timeout` is needed.
 
 To unregister the event:
 
