@@ -7,11 +7,13 @@ logfile = open("tests/test_echo-server.log", 'w')
 try:
     print "TEST START ..."
     prog_tested = pexpect.spawn(sys.argv[1], timeout = 100, logfile = logfile)
+    time.sleep(1)
     
     prog_tested.expect("TcpManager start...")
 
     print ">>> Test raise an error."
     c_err = pexpect.spawn('telnet 127.0.0.1 48888', timeout = 300, logfile = logfile)
+    time.sleep(1)
     c_err.sendline("hello")
     c_err.expect("hello")
     c_err.sendline("raise")
@@ -23,6 +25,7 @@ try:
     for i in range(6):
         print ">>> Open a new telnet session #%d" % i
         c[i] = pexpect.spawn('telnet 127.0.0.1 48888', timeout = 100, logfile = logfile)
+        time.sleep(1)
         prog_tested.expect("EchoActor.*start")
     
         print ">>> Send some words and wait for echo with #%d" % i
@@ -43,6 +46,7 @@ try:
         
     print ">>> Send 'exit' to close all connections then exit"
     cexit = pexpect.spawn('telnet 127.0.0.1 48888', timeout = 100, logfile = logfile)
+    time.sleep(1)
     cexit.sendline("exit")
     cexit.expect("exit")
     prog_tested.expect("TcpManager end...")
