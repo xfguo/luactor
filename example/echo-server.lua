@@ -132,10 +132,10 @@ tcp_manager_func = function ()
                 local failed_echo_actor_name = msg.actor.name
                 accepted_conns[failed_echo_actor_name]:close()
                 print(string.format(
-                    'Echo actor: [%s] failed: \ntrace:\n\t%s\nerror: %s',
+                    'Echo actor: [%s] failed: \nerror: %s\ntrace:\n\t%s',
                     failed_echo_actor_name,
-                    string.gsub(msg.error[1], '\n', '\n\t'),
-                    msg.error[2]
+                    msg.error,
+                    string.gsub(debug.traceback(msg.actor.thread), '\n', '\n\t')
                 ))
             end,
 

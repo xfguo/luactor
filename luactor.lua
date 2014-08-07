@@ -36,8 +36,6 @@ local __actors_events       -- registered events for each actor
 --============================================================================
 -- helper methods for luactor
 
-local pack = table.pack or function(...) return {n = select("#", ...), ...} end
-
 ------------------------------------------------------------------------------
 -- open a coroutine safely (for lua 5.1)
 -- modified from coxpcall project
@@ -54,15 +52,15 @@ local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 -- Copyright 2005 - Kepler Project (www.keplerproject.org)
 -------------------------------------------------------------------------------
 
-local handle_return_value = function (err, co, status, ...)
+local handle_return_value = function (co, status, ...)
     if not status then
-        return false, err(debug.traceback(co, (...)), ...)
+        return false, ...
     end
     return true, ...
 end
 
-local perform_resume = function (err, co, ...)
-    return handle_return_value(err, co, coroutine.resume(co, ...))
+local perform_resume = function (co, ...)
+    return handle_return_value(co, coroutine.resume(co, ...))
 end
 
 local safe_coroutine_create = function(f)
@@ -120,19 +118,25 @@ local resume_actor = function (actor, ...)
     end
 
     local me = get_myself()
-    local status, err = perform_resume(pack, actor.thread, ...)
+    local status, err = perform_resume(actor.thread, ...)
     -- send the failed actor to its creator. if it creator is
     -- dead, then just destory it.
-    if status == false and actor.creator ~= nil then
-        queue.push(__mqueue, {
-            '_',                   -- sender
-            actor.creator,         -- receiver
-            "actor_error",         -- command
-            {
-                actor = actor,
-                error = err,
-            }                      -- error message
-        })
+    if status == false then
+        if actor.creator ~= nil then
+            queue.push(__mqueue, {
+                '_',                   -- sender
+                actor.creator,         -- receiver
+                "actor_error",         -- command
+                {
+                    actor = actor,
+                    error = err,
+                }                      -- error message
+            })
+        else
+            -- XXX: we need better way to pass thread to user so
+            --      it can handle or debug it.
+            error(err)
+        end
     end
 
     -- if an actor is dead or failed, destory the relevant info.
