@@ -283,7 +283,7 @@ actor.wait = function (handlers)
        and handlers[command] ~= nil
        -- XXX:how to make sure handlers[command] is function like?
     then
-        handlers[command](message, sender)
+        return handlers[command](message, sender)
     else
         -- XXX: should we raise an error here? or, we can return a
         --      command `__unknown` or `__index` as a *meta method*.
