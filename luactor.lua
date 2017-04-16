@@ -194,6 +194,9 @@ local process_mqueue = function ()
         -- process the message in the queue one by one until empty.
         while not queue.empty(__mqueue) do
             local sender, receiver, command, message = unpack(queue.pop(__mqueue))
+            if type(receiver) ~= 'string' then
+                receiver = receiver.name
+            end
             if __actors[receiver] == nil then
                 -- drop this message
                 -- TODO: what we can do before the message is dropped.
